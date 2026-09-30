@@ -1,7 +1,7 @@
 import "./App.css";
 import logo_EventHub from "./assets/Logo.png";
 import logo_Jaguar from "./assets/Logo_Jaguar.png";
-import { FaLock } from "react-icons/fa";
+import { FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import Google from "./assets/Google.png";
 import Microsoft from "./assets/Microsoft.png";
 import { useEffect, useRef, useState } from "react";
@@ -155,6 +155,7 @@ function Header({ ruta, abrirCrear }) {
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mostrarPassword, setMostrarPassword] = useState(false);
 
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
@@ -286,7 +287,7 @@ function Login({ onLogin }) {
 
               <input
                 id="login-password"
-                type="password"
+                type={mostrarPassword ? "text" : "password"}
                 placeholder="••••••••••••"
                 value={password}
                 onChange={(event) => {
@@ -303,9 +304,18 @@ function Login({ onLogin }) {
                 aria-invalid={Boolean(errores.password)}
               />
 
-              <span className="login-password-icon">
-                ◉
-              </span>
+              <button
+                type="button"
+                className="login-password-toggle"
+                onClick={() => setMostrarPassword((prev) => !prev)}
+                aria-label={
+                  mostrarPassword
+                    ? "Ocultar contraseña"
+                    : "Mostrar contraseña"
+                }
+              >
+                {mostrarPassword ? <FaEye /> : <FaEyeSlash />}
+              </button>
             </div>
 
             {errores.password && (
