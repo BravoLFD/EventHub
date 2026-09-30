@@ -1,5 +1,5 @@
 import "./App.css";
-import logoEVentHub from "./assets/Logo.png";
+import logo_EventHub from "./assets/Logo.png";
 import logo_Jaguar from "./assets/Logo_Jaguar.png";
 import { useEffect, useRef, useState } from "react";
 import {
