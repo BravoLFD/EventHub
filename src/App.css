@@ -3104,42 +3104,21 @@ small {
 }
 
 
-/* Logo Jaguar */
+/* LOGO COMPLETO EVENTHUB */
 
 .login-logo {
-  width: 42px;
-  height: 42px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  margin-bottom: 4px;
-}
-
-.login-logo img {
   display: block;
 
-  width: 100%;
-  height: 100%;
+  width: 105px;
+  height: auto;
+
+  margin: 0 auto 7px;
 
   object-fit: contain;
 }
 
 
-/* Nombre EventHub */
-
-.login-brand-name {
-  color: #0738a5;
-
-  font-size: 21px;
-  font-weight: 800;
-
-  line-height: 1.1;
-}
-
-
-/* Descripción */
+/* SUBTÍTULO */
 
 .login-brand p {
   margin: 8px 0 6px;
@@ -3153,7 +3132,7 @@ small {
 }
 
 
-/* Portal Operativo Seguro */
+/* BADGE */
 
 .security-badge {
   display: inline-flex;
@@ -3164,6 +3143,7 @@ small {
   border-radius: 5px;
 
   background: #eef3ff;
+
   color: #3157c9;
 
   font-size: 7px;
@@ -3226,7 +3206,7 @@ small {
 
 
 /* =========================================================
-   INPUT + ICON
+   INPUTS
    ========================================================= */
 
 .login-input-wrapper {
@@ -3254,7 +3234,7 @@ small {
   width: 100%;
   height: 26px;
 
-  padding: 5px 30px 5px 30px;
+  padding: 5px 30px;
 
   border: 0;
   border-radius: 3px;
@@ -3262,6 +3242,7 @@ small {
   outline: none;
 
   background: #edf0f4;
+
   color: #172033;
 
   font-size: 10px;
@@ -3288,36 +3269,22 @@ small {
 
 
 /* =========================================================
-   BOTÓN MOSTRAR CONTRASEÑA
+   ICONO CONTRASEÑA
    ========================================================= */
 
-.password-toggle {
+.login-password-icon {
   position: absolute;
 
-  right: 7px;
+  right: 8px;
   top: 50%;
 
   transform: translateY(-50%);
 
-  width: 22px;
-  height: 22px;
-
-  display: grid;
-  place-items: center;
-
-  padding: 0;
-
-  border: 0;
-
-  background: transparent;
-
-  color: #64748b;
+  color: #718096;
 
   font-size: 11px;
-}
 
-.password-toggle:disabled {
-  cursor: default;
+  pointer-events: none;
 }
 
 
@@ -3344,6 +3311,7 @@ small {
   color: #64748b;
 
   font-size: 9px;
+
   line-height: 1.35;
 
   cursor: pointer;
@@ -3422,25 +3390,35 @@ small {
 
 .login-submit:disabled {
   opacity: 0.7;
+
   cursor: wait;
 }
 
 
 /* =========================================================
-   LOGIN SOCIAL
+   SSO CORPORATIVO
    ========================================================= */
 
-.social-section {
-  margin-top: 23px;
-}
-
-.social-divider {
+.corporate-divider {
   display: flex;
   align-items: center;
 
   gap: 8px;
 
+  margin-top: 23px;
   margin-bottom: 16px;
+}
+
+.corporate-divider span {
+  flex: 1;
+
+  height: 1px;
+
+  background: #e4e7ec;
+}
+
+.corporate-divider p {
+  margin: 0;
 
   color: #8a93a3;
 
@@ -3449,18 +3427,10 @@ small {
   white-space: nowrap;
 }
 
-.social-divider::before,
-.social-divider::after {
-  content: "";
 
-  flex: 1;
+/* BOTONES GOOGLE / MICROSOFT */
 
-  height: 1px;
-
-  background: #e4e7ec;
-}
-
-.social-buttons {
+.corporate-buttons {
   display: grid;
 
   grid-template-columns: 1fr 1fr;
@@ -3468,14 +3438,16 @@ small {
   gap: 10px;
 }
 
-.social-button {
+.corporate-button {
   height: 24px;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  gap: 7px;
+  gap: 6px;
+
+  padding: 0;
 
   border: 0;
   border-radius: 4px;
@@ -3488,7 +3460,7 @@ small {
   font-weight: 600;
 }
 
-.social-button:disabled {
+.corporate-button:disabled {
   opacity: 0.85;
 
   cursor: not-allowed;
@@ -3498,6 +3470,7 @@ small {
   color: #4285f4;
 
   font-size: 12px;
+
   font-weight: 800;
 }
 
@@ -3509,10 +3482,10 @@ small {
 
 
 /* =========================================================
-   SIMULAR ERROR
+   SIMULAR ERROR OWASP
    ========================================================= */
 
-.simulate-error {
+.security-test {
   display: block;
 
   margin: 20px auto 0;
@@ -3528,8 +3501,10 @@ small {
   font-size: 8px;
 }
 
-.simulate-error:disabled {
+.security-test:disabled {
   cursor: default;
+
+  opacity: 1;
 }
 
 
@@ -3537,13 +3512,14 @@ small {
    AVISO DE SEGURIDAD
    ========================================================= */
 
-.security-notice {
+.security-message {
   display: flex;
   align-items: flex-start;
 
   gap: 8px;
 
   margin-top: 17px;
+
   padding: 10px 11px;
 
   border-radius: 3px;
@@ -3557,12 +3533,17 @@ small {
   line-height: 1.4;
 }
 
-.security-notice-icon {
+
+/* ICONO DE SEGURIDAD */
+
+.security-message-icon {
   flex-shrink: 0;
 
   color: #0738a5;
 
   font-size: 10px;
+
+  line-height: 1;
 }
 
 

@@ -390,18 +390,7 @@ function Login({ onLogin }) {
         </button>
 
         {/* AVISO DE SEGURIDAD */}
-        <div className="security-message">
-          <img
-            src={logo_Jaguar}
-            alt=""
-            className="security-jaguar"
-          />
-
-          <span>
-            Conexión cifrada de extremo a extremo.
-            Acceso exclusivo para organizadores autorizados.
-          </span>
-        </div>
+        <div className="security-message"> <img src={logo_Jaguar} alt="" className="security-message-icon" /> <span> Conexión cifrada de extremo a extremo. Acceso exclusivo para organizadores autorizados. </span> </div>
 
       </section>
 
