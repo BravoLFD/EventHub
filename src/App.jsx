@@ -8,22 +8,70 @@ import {
   crearSubtarea,
   eliminarEvento,
   eliminarSubtarea,
+  iniciarSesion,
   obtenerConfiguracionUsuario,
   obtenerEvento,
   obtenerEventos,
   obtenerSubtareas,
 } from "./services/api.js";
+import {
+  cerrarSesion,
+  estaAutenticado,
+  guardarSesion,
+} from "./services/auth.js";
 
-const rutas = ["/eventos", "/hoy", "/crear-evento", "/configuracion"];
+const rutas = ["/login", "/eventos", "/hoy", "/crear-evento", "/configuracion"];
 
 function rutaActual() {
   const path = window.location.pathname;
   if (path.startsWith("/eventos/") && path.split("/")[2]) return path;
   return rutas.includes(path) ? path : "/eventos";
 }
+function esRutaPublica(path) {
+  return path === "/login";
+}
+
+function esRutaPrivada(path) {
+  return (
+    path === "/eventos" ||
+    path === "/hoy" ||
+    path === "/crear-evento" ||
+    path === "/configuracion" ||
+    path === "/progreso" ||
+    path.startsWith("/eventos/")
+  );
+}
+
+function obtenerRutaInicial() {
+  const path = window.location.pathname;
+
+  if (esRutaPublica(path)) {
+    return estaAutenticado() ? "/eventos" : "/login";
+  }
+
+  if (esRutaPrivada(path)) {
+    return estaAutenticado() ? rutaActual() : "/login";
+  }
+
+  return estaAutenticado() ? "/eventos" : "/login";
+}
 
 function navegar(path) {
-  if (window.location.pathname !== path) window.history.pushState({}, "", path);
+  if (esRutaPrivada(path) && !estaAutenticado()) {
+    path = "/login";
+  }
+
+  if (
+    path === "/login" &&
+    estaAutenticado()
+  ) {
+    path = "/eventos";
+  }
+
+  if (window.location.pathname !== path) {
+    window.history.pushState({}, "", path);
+  }
+
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
@@ -95,8 +143,154 @@ function Header({ ruta, abrirCrear }) {
       <button className="icon-button" aria-label="Notificaciones">☾</button>
       <button className="icon-button" aria-label="Ayuda">?</button>
       <button className="btn primary header-create" type="button" onClick={abrirCrear}>＋ Crear Evento</button>
-      <button className="avatar" type="button" aria-label="Abrir configuración" onClick={() => navegar("/configuracion")}>LV</button>
+      <button className="avatar" type="button" aria-label="Abrir configuración" onClick={() => navegar("/configuracion")}>LV</button> <button className="icon-button" type="button" aria-label="Cerrar sesión" onClick={() => { cerrarSesion(); navegar("/login"); }}>↪</button>
     </header>
+  );
+}
+function Login({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [errores, setErrores] = useState({});
+  const [errorServidor, setErrorServidor] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  const validar = () => {
+    const next = {};
+
+    if (!email.trim()) {
+      next.email = "El correo electrónico es requerido.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      next.email = "Ingresa un correo electrónico válido.";
+    }
+
+    if (!password) {
+      next.password = "La contraseña es requerida.";
+    }
+
+    return next;
+  };
+
+  const enviar = async (event) => {
+    event.preventDefault();
+
+    const next = validar();
+
+    setErrores(next);
+    setErrorServidor("");
+
+    if (Object.keys(next).length > 0) {
+      return;
+    }
+
+    setEnviando(true);
+
+    try {
+      const data = await iniciarSesion(
+        email.trim(),
+        password
+      );
+
+      guardarSesion(data);
+
+      onLogin();
+    } catch (error) {
+      setErrorServidor(
+        error.message || "No fue posible iniciar sesión."
+      );
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <main className="login-page">
+      <section className="login-card">
+        <div className="login-header">
+          <span className="brand-icon">✦</span>
+
+          <h1>Iniciar sesión</h1>
+
+          <p>
+            Accede a EventHub para gestionar tus eventos.
+          </p>
+        </div>
+
+        {errorServidor && (
+          <div className="login-error" role="alert">
+            <strong>No fue posible iniciar sesión.</strong>
+            <span>{errorServidor}</span>
+          </div>
+        )}
+
+        <form onSubmit={enviar} noValidate>
+          <div className="field">
+            <label htmlFor="login-email">
+              Correo electrónico
+            </label>
+
+            <input
+              id="login-email"
+              type="email"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setErrores((prev) => ({
+                  ...prev,
+                  email: "",
+                }));
+                setErrorServidor("");
+              }}
+              autoComplete="email"
+              autoFocus
+              aria-invalid={Boolean(errores.email)}
+            />
+
+            {errores.email && (
+              <p className="inline-error" role="alert">
+                ⊗ {errores.email}
+              </p>
+            )}
+          </div>
+
+          <div className="field">
+            <label htmlFor="login-password">
+              Contraseña
+            </label>
+
+            <input
+              id="login-password"
+              type="password"
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setErrores((prev) => ({
+                  ...prev,
+                  password: "",
+                }));
+                setErrorServidor("");
+              }}
+              autoComplete="current-password"
+              aria-invalid={Boolean(errores.password)}
+            />
+
+            {errores.password && (
+              <p className="inline-error" role="alert">
+                ⊗ {errores.password}
+              </p>
+            )}
+          </div>
+
+          <button
+            className="btn primary login-submit"
+            type="submit"
+            disabled={enviando}
+          >
+            {enviando ? "Iniciando sesión..." : "Iniciar sesión"}
+          </button>
+        </form>
+      </section>
+    </main>
   );
 }
 
@@ -1567,7 +1761,7 @@ function Today({ onNotify }) {
 
 
 export default function App() {
-  const [ruta, setRuta] = useState(rutaActual);
+  const [ruta, setRuta] = useState(obtenerRutaInicial);
   const [eventos, setEventos] = useState([]);
   const [cargandoEventos, setCargandoEventos] = useState(true);
   const [errorEventos, setErrorEventos] = useState("");
@@ -1582,10 +1776,31 @@ export default function App() {
   };
 
   useEffect(() => {
-    const onPop = () => setRuta(rutaActual());
+    const onPop = () => {
+      const path = window.location.pathname;
+
+      if (esRutaPrivada(path) && !estaAutenticado()) {
+        navegar("/login");
+        return;
+      }
+
+      if (path === "/login" && estaAutenticado()) {
+        navegar("/eventos");
+        return;
+      }
+
+      setRuta(rutaActual());
+    };
+
     window.addEventListener("popstate", onPop);
-    if (ruta === "/eventos") cargarEventos();
-    return () => window.removeEventListener("popstate", onPop);
+
+    if (ruta === "/eventos" && estaAutenticado()) {
+      cargarEventos();
+    }
+
+    return () => {
+      window.removeEventListener("popstate", onPop);
+    };
   }, [ruta]);
 
   const notify = (message, type = "success") => {
@@ -1601,6 +1816,16 @@ export default function App() {
   };
 
   const detalleId = ruta.startsWith("/eventos/") ? ruta.split("/")[2] : null;
+
+  if (ruta === "/login") {
+    return (
+      <Login
+        onLogin={() => {
+          navegar("/eventos");
+        }}
+      />
+    );
+  }
 
   return <main className="app">
     <Header ruta={ruta} abrirCrear={() => navegar("/crear-evento")} />

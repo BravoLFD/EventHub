@@ -1,34 +1,56 @@
 // Frontend-only API client.
+import { obtenerAccessToken } from "./auth.js";
 const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 async function request(path, options = {}) {
   let response;
+
+  const token = obtenerAccessToken();
+
+  const headers = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   try {
     response = await fetch(`${API_URL}${path}`, {
-      headers: { "Content-Type": "application/json", ...options.headers },
       ...options,
+      headers,
     });
   } catch {
-    throw new Error("No se pudo conectar con el servidor. Inténtalo de nuevo.");
+    throw new Error(
+      "No se pudo conectar con el servidor. Inténtalo de nuevo."
+    );
   }
 
   const contentType = response.headers.get("content-type") || "";
+
   const data = contentType.includes("application/json")
     ? await response.json().catch(() => null)
     : await response.text().catch(() => "");
 
   if (!response.ok) {
-  const detail =
-    typeof data === "object" && data?.detail
-      ? Array.isArray(data.detail)
-        ? data.detail
-            .map((item) => item.msg || "Error de validación.")
-            .join(" ")
-        : String(data.detail)
-      : null;
+    const detail =
+      typeof data === "object" && data?.detail
+        ? Array.isArray(data.detail)
+          ? data.detail
+              .map((item) => item.msg || "Error de validación.")
+              .join(" ")
+          : String(data.detail)
+        : null;
 
-  throw new Error(detail || "No fue posible completar la solicitud.");
-}
+    if (response.status === 401) {
+      throw new Error(
+        detail || "Tu sesión ha expirado. Inicia sesión nuevamente."
+      );
+    }
+
+    throw new Error(detail || "No fue posible completar la solicitud.");
+  }
 
   return data;
 }
@@ -104,6 +126,19 @@ export function eliminarSubtarea(id) {
     method: "DELETE",
   });
 }
+
+// --- AUTENTICACIÓN ---
+
+export function iniciarSesion(email, password) {
+  return request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      email,
+      password,
+    }),
+  });
+}
+
 // --- CONFIGURACIÓN DEL USUARIO ---
 
 export function obtenerConfiguracionUsuario() {
