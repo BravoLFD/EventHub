@@ -135,9 +135,9 @@ function Modal({ title, subtitle, close, children, wide = false }) {
 function Header({ ruta, abrirCrear }) {
   return (
     <header>
-      <button className="brand" type="button" onClick={() => navegar("/eventos")}><span className="brand-icon"><img src={logo_Jaguar} alt="EventHub" /></span>EventHub</button>
+      <button className="brand" type="button" onClick={() => navegar("/eventos")}><span className="brand-icon">✦</span>EventHub</button>
       <nav aria-label="Navegación principal">
-        <button className={ruta === "/eventos" || ruta.startsWith("/eventos/") ? "nav-link active" : "nav-link"} onClick={() => navegar("/eventos")}><img src={logo_Jaguar} alt="EventHub" /> Eventos</button>
+        <button className={ruta === "/eventos" || ruta.startsWith("/eventos/") ? "nav-link active" : "nav-link"} onClick={() => navegar("/eventos")}>✦ Eventos</button>
         <button className={ruta === "/hoy" ? "nav-link active" : "nav-link"} onClick={() => navegar("/hoy")}> Hoy</button>
       </nav>
       <div className="header-spacer" />
@@ -935,10 +935,10 @@ function Eventos({ eventos, cargando, error, recargar, crear }) {
 
       {cargando && <section className="card state-card"><span className="spinner" /> Cargando eventos...</section>}
       {!cargando && error && <section className="card state-card error-state" role="alert"><div><b>No se pudieron cargar los eventos.</b><p>{error}</p></div><button className="btn ghost" onClick={recargar}>Reintentar</button></section>}
-      {!cargando && !error && eventos.length === 0 && <section className="card empty-state"><div className="empty-icon"><img src={logo_Jaguar} alt="EventHub" /></div><h2>Aún no hay eventos</h2><p>¿Deseas crear tu primer evento?</p><button className="btn primary" onClick={crear}>Crear el primer evento</button></section>}
+      {!cargando && !error && eventos.length === 0 && <section className="card empty-state"><div className="empty-icon">✦</div><h2>Aún no hay eventos</h2><p>¿Deseas crear tu primer evento?</p><button className="btn primary" onClick={crear}>Crear el primer evento</button></section>}
       {!cargando && !error && eventos.length > 0 && <section className="event-grid" aria-label="Eventos guardados">
         {eventos.map((evento) => <article className="event-card card" key={evento.id ?? `${evento.titulo}-${evento.fecha}`}>
-          <div className="event-card-icon"><img src={logo_Jaguar} alt="EventHub" /></div>
+          <div className="event-card-icon">✦</div>
           <div className="event-card-content"><span className="status-pill">● En preparación</span><h2>{evento.titulo}</h2><p>{formatearFecha(evento.fecha)} {evento.horas ? `• ${evento.horas} horas` : ""}</p>{evento.descripcion && <p className="muted-line">{evento.descripcion}</p>}</div>
           <button className="btn secondary" onClick={() => navegar(`/eventos/${evento.id}`)}>Ver detalle</button>
         </article>)}
@@ -1037,7 +1037,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
         <div className="section-tabs"><span className="tab active">Con subtareas ({subtareas.length})</span><span className="tab">Estado Vacío</span><span className="tab">Estado de Carga</span><span className="tab">Estado de Error</span></div>
         {estadoSubtareas === "loading" && <div className="state-inside"><span className="spinner" /> Cargando subtareas...</div>}
         {estadoSubtareas === "error" && <div className="state-inside error-inside" role="alert"><div><b>Error cargando las subtareas</b><p>{errorSubtareas}</p></div><button className="btn ghost" onClick={cargarSubtareas}>Reintentar</button></div>}
-        {estadoSubtareas === "empty" && <div className="empty-subtasks"><div className="empty-icon"><img src={logo_Jaguar} alt="EventHub" /></div><h3>Aún no hay subtareas</h3><p>Agrega una subtarea para organizar este evento.</p><button className="btn primary" onClick={() => setModal("create-subtask")}>＋ Nueva subtarea</button></div>}
+        {estadoSubtareas === "empty" && <div className="empty-subtasks"><div className="empty-icon">✦</div><h3>Aún no hay subtareas</h3><p>Agrega una subtarea para organizar este evento.</p><button className="btn primary" onClick={() => setModal("create-subtask")}>＋ Nueva subtarea</button></div>}
         {estadoSubtareas === "success" && <div className="subtask-list">
           {subtareas.map((task) => {
             const estado = normalizarEstado(task.estado);
