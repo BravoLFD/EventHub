@@ -18,6 +18,7 @@ import {
   obtenerEvento,
   obtenerEventos,
   obtenerSubtareas,
+  actualizarParcialSubtarea,
 } from "./services/api.js";
 import {
   cerrarSesion,
@@ -1751,6 +1752,7 @@ function Today({ onNotify }) {
 
   const cambiarEstado = async (tarea, nuevoEstado = null) => {
     const estadoActual = normalizarEstado(tarea.estado);
+
     const estadoNuevo =
       nuevoEstado ||
       (estadoActual === "hecho" ? "pendiente" : "hecho");
@@ -1758,10 +1760,7 @@ function Today({ onNotify }) {
     setActualizando(tarea.id);
 
     try {
-      await actualizarSubtarea(tarea.id, {
-        evento_id: tarea.evento_id,
-        titulo: obtenerTituloSubtarea(tarea),
-        horas_estimadas: obtenerHoras(tarea),
+      await actualizarParcialSubtarea(tarea.id, {
         estado: estadoNuevo,
       });
 
@@ -1924,7 +1923,7 @@ function Today({ onNotify }) {
         </div>
 
         <div className="today-capacity">
-          <span>Capacidad del día</span>
+          <span>Capacidad del día </span>
           <strong>
             {horasPendientes}h / {capacidadDiaria}h
           </strong>
