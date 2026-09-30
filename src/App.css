@@ -2861,13 +2861,14 @@ small {
 }
 /*CONFIGURACIÓN DEL USUARIO*/
 
+
 .configuration-page {
   max-width: 1100px;
   margin: 0 auto;
 }
 
 .configuration-header {
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .configuration-header small {
@@ -2885,11 +2886,19 @@ small {
 
 .configuration-header p {
   margin-top: 8px;
-  color: #6b7280;
+  color: #64748b;
 }
+
+
+/* TARJETA */
 
 .configuration-card {
   max-width: 720px;
+  padding: 32px;
+  background: #ffffff;
+  border: 1px solid #dce1eb;
+  border-radius: 16px;
+  box-shadow: var(--eh-shadow);
 }
 
 .configuration-card-header {
@@ -2902,36 +2911,91 @@ small {
 
 .configuration-card-header p {
   margin: 0;
-  color: #6b7280;
+  color: #64748b;
   line-height: 1.5;
 }
+
+
+/* CAMPO */
 
 .configuration-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .configuration-field label {
   font-weight: 600;
+  color: var(--ink);
 }
 
 .configuration-field label span {
   color: #dc2626;
 }
 
+
+/* INPUT */
+
 .configuration-field input {
   width: 100%;
   max-width: 220px;
+  height: 46px;
+  padding: 0 14px;
+
   box-sizing: border-box;
+
+  border: 1px solid #cbd3e1;
+  border-radius: 10px;
+
+  background: #ffffff;
+  color: var(--ink);
+
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.configuration-field small {
-  color: #6b7280;
+.configuration-field input:hover {
+  border-color: #aebbd4;
 }
+
+.configuration-field input:focus {
+  border-color: var(--eh-blue);
+  box-shadow: 0 0 0 3px rgba(49, 91, 213, 0.12);
+}
+
+
+/* QUITAR FLECHAS FEAS DEL INPUT NUMBER */
+
+.configuration-field input[type="number"]::-webkit-inner-spin-button,
+.configuration-field input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  opacity: 1;
+}
+
+
+/* TEXTO DE AYUDA */
+
+.configuration-field small {
+  display: block;
+  max-width: 500px;
+  color: #64748b;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+
+/* BOTONES */
 
 .configuration-actions {
   display: flex;
+  align-items: center;
   gap: 12px;
   margin-top: 28px;
 }
@@ -2940,6 +3004,38 @@ small {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+
+/* ESTADO DE ERROR */
+
+.configuration-card .error,
+.configuration-card .configuration-error {
+  margin-top: 16px;
+  padding: 12px 14px;
+
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+
+/* ESTADO DE ÉXITO */
+
+.configuration-success {
+  margin-top: 16px;
+  padding: 12px 14px;
+
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+
+  background: #f0fdf4;
+  color: #166534;
+}
+
+
+/* AVATAR */
 
 .avatar {
   border: 0;
