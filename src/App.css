@@ -2948,7 +2948,6 @@ small {
 /* ==============================
    LOGIN
    ============================== */
-
 .login-page {
   min-height: 100vh;
   display: flex;
@@ -2994,6 +2993,42 @@ small {
   gap: 20px;
 }
 
+.login-card .field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-card .field label {
+  display: block;
+  margin: 0;
+}
+
+.login-card .field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 16px;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.login-card .field input:focus {
+  border-color: #3157d5;
+  box-shadow: 0 0 0 3px rgba(49, 87, 213, 0.12);
+}
+
 .login-submit {
   width: 100%;
   margin-top: 4px;
@@ -3005,12 +3040,20 @@ small {
   gap: 4px;
   margin-bottom: 20px;
   padding: 12px 14px;
+
   border: 1px solid #fecaca;
   border-radius: 8px;
+
   background: #fef2f2;
   color: #991b1b;
 }
 
 .login-error span {
   color: #b91c1c;
+}
+
+.inline-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 14px;
 }
