@@ -104,3 +104,17 @@ export function eliminarSubtarea(id) {
     method: "DELETE",
   });
 }
+// --- CONFIGURACIÓN DEL USUARIO ---
+
+export function obtenerConfiguracionUsuario() {
+  return request("/usuario/configuracion");
+}
+
+export function actualizarConfiguracionUsuario(horasDia) {
+  return request("/usuario/configuracion", {
+    method: "PUT",
+    body: JSON.stringify({
+      horas_dia: horasDia,
+    }),
+  });
+}

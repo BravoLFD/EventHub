@@ -3,16 +3,18 @@ import { useEffect, useRef, useState } from "react";
 import {
   actualizarEvento,
   actualizarSubtarea,
+  actualizarConfiguracionUsuario,
   crearEvento,
   crearSubtarea,
   eliminarEvento,
   eliminarSubtarea,
+  obtenerConfiguracionUsuario,
   obtenerEvento,
   obtenerEventos,
   obtenerSubtareas,
 } from "./services/api.js";
 
-const rutas = ["/eventos", "/hoy", "/crear-evento"];
+const rutas = ["/eventos", "/hoy", "/crear-evento", "/configuracion"];
 
 function rutaActual() {
   const path = window.location.pathname;
@@ -93,7 +95,7 @@ function Header({ ruta, abrirCrear }) {
       <button className="icon-button" aria-label="Notificaciones">☾</button>
       <button className="icon-button" aria-label="Ayuda">?</button>
       <button className="btn primary header-create" type="button" onClick={abrirCrear}>＋ Crear Evento</button>
-      <div className="avatar" aria-label="Perfil">LV</div>
+      <button className="avatar" type="button" aria-label="Abrir configuración" onClick={() => navegar("/configuracion")}>LV</button>
     </header>
   );
 }
@@ -317,12 +319,12 @@ function CrearSubtareaForm({ eventoId, onCancelar, onCreada }) {
 
     setEnviando(true);
     try {
-          await crearSubtarea({
-            evento_id: eventoId,
-            titulo: form.nombre.trim(),
-            horas_estimadas: Number(form.horas),
-            estado: form.estado,
-          });
+      await crearSubtarea({
+        evento_id: eventoId,
+        titulo: form.nombre.trim(),
+        horas_estimadas: Number(form.horas),
+        estado: form.estado,
+      });
       onCreada();
     } catch (error) {
       setErrorServidor(error.message);
@@ -429,15 +431,15 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
 
     const horas = Number(formulario.horas);
 
-if (
-  !formulario.horas ||
-  horas <= 0 ||
-  !Number.isInteger(horas)
-) {
-  next.horas = "Las horas deben ser mayor a 0.";
-} else if (horas > 24) {
-  next.horas = "Las horas no pueden ser mayores a 24.";
-}
+    if (
+      !formulario.horas ||
+      horas <= 0 ||
+      !Number.isInteger(horas)
+    ) {
+      next.horas = "Las horas deben ser mayor a 0.";
+    } else if (horas > 24) {
+      next.horas = "Las horas no pueden ser mayores a 24.";
+    }
 
     if (!formulario.usuario_responsable.trim()) {
       next.usuario_responsable = "El usuario responsable es requerido.";
@@ -562,12 +564,12 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
     if (Object.keys(next).length) return;
     setGuardando(true);
     try {
-          await actualizarSubtarea(subtarea.id, {
-            evento_id: eventoId,
-            titulo: form.nombre.trim(),
-            horas_estimadas: Number(form.horas),
-            estado: form.estado,
-          });
+      await actualizarSubtarea(subtarea.id, {
+        evento_id: eventoId,
+        titulo: form.nombre.trim(),
+        horas_estimadas: Number(form.horas),
+        estado: form.estado,
+      });
       onGuardado();
     } catch (error) {
       setErrorServidor(error.message);
@@ -655,9 +657,9 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
   const porcentaje = subtareas.length ? Math.round((completadas / subtareas.length) * 100) : 0;
   const responsable = evento?.usuario_responsable;
   const responsableTexto =
-  typeof responsable === "object"
-    ? responsable?.nombre
-    : responsable;
+    typeof responsable === "object"
+      ? responsable?.nombre
+      : responsable;
 
   const eventoActualizado = async () => {
     setModal(null); await cargar(); onEventosChanged?.(); onNotify("Evento actualizado correctamente");
@@ -837,9 +839,8 @@ function CrearEventoPage({ onCancelar, onCrear }) {
 
             return (
               <div
-                className={`register-step ${
-                  completado ? "done" : actual ? "current" : ""
-                }`}
+                className={`register-step ${completado ? "done" : actual ? "current" : ""
+                  }`}
                 key={paso.titulo}
               >
                 <span className="step-dot">
@@ -871,6 +872,187 @@ function CrearEventoPage({ onCancelar, onCrear }) {
 
 
       </aside>
+    </section>
+  );
+}
+
+function ConfiguracionUsuario({ onNotify }) {
+  const [horasDia, setHorasDia] = useState(6);
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
+  const [errorCampo, setErrorCampo] = useState("");
+
+  useEffect(() => {
+    const cargarConfiguracion = async () => {
+      setCargando(true);
+      setError("");
+
+      try {
+        const data = await obtenerConfiguracionUsuario();
+
+        setHorasDia(
+          Number.isInteger(Number(data?.horas_dia))
+            ? Number(data.horas_dia)
+            : 6
+        );
+      } catch (errorActual) {
+        setError(
+          errorActual.message ||
+          "No fue posible cargar la configuración del usuario."
+        );
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    cargarConfiguracion();
+  }, []);
+
+  const cambiarHoras = (event) => {
+    const value = event.target.value;
+
+    setHorasDia(value);
+    setErrorCampo("");
+  };
+
+  const validar = () => {
+    const horas = Number(horasDia);
+
+    if (
+      horasDia === "" ||
+      !Number.isInteger(horas) ||
+      horas < 1 ||
+      horas > 16
+    ) {
+      return "Las horas por día deben ser un número entero entre 1 y 16.";
+    }
+
+    return "";
+  };
+
+  const guardar = async (event) => {
+    event.preventDefault();
+
+    const errorValidacion = validar();
+
+    if (errorValidacion) {
+      setErrorCampo(errorValidacion);
+      return;
+    }
+
+    setGuardando(true);
+    setError("");
+    setErrorCampo("");
+
+    try {
+      const data = await actualizarConfiguracionUsuario(Number(horasDia));
+
+      setHorasDia(Number(data.horas_dia));
+
+      onNotify("Configuración guardada correctamente.");
+    } catch (errorActual) {
+      setError(
+        errorActual.message ||
+        "No fue posible guardar la configuración. Inténtalo de nuevo."
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <section className="page configuration-page">
+      <div className="configuration-header">
+        <div>
+          <small>CONFIGURACIÓN DEL ORGANIZADOR</small>
+          <h1>Disponibilidad</h1>
+          <p>
+            Define cuántas horas al día tienes disponibles para gestionar tus
+            eventos.
+          </p>
+        </div>
+      </div>
+
+      {cargando ? (
+        <section className="card state-card">
+          <span className="spinner" />
+          Consultando tu configuración...
+        </section>
+      ) : error ? (
+        <section className="card state-card error-state" role="alert">
+          <div>
+            <b>No se pudo cargar la configuración.</b>
+            <p>{error}</p>
+          </div>
+        </section>
+      ) : (
+        <section className="card configuration-card">
+          <div className="configuration-card-header">
+            <div>
+              <h2>Límite diario de gestión</h2>
+              <p>
+                El sistema utilizará este límite para detectar sobrecarga en
+                tu planificación diaria.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={guardar} noValidate>
+            <div className="configuration-field">
+              <label htmlFor="horas-dia">
+                Horas disponibles por día <span>*</span>
+              </label>
+
+              <input
+                id="horas-dia"
+                name="horas-dia"
+                type="number"
+                min="1"
+                max="16"
+                step="1"
+                value={horasDia}
+                onChange={cambiarHoras}
+                aria-invalid={Boolean(errorCampo)}
+                aria-describedby="horas-dia-ayuda horas-dia-error"
+              />
+
+              <small id="horas-dia-ayuda">
+                Introduce un número entero entre 1 y 16 horas.
+              </small>
+
+              {errorCampo && (
+                <p
+                  id="horas-dia-error"
+                  className="inline-error"
+                  role="alert"
+                >
+                  ⊗ {errorCampo}
+                </p>
+              )}
+            </div>
+
+            <div className="configuration-actions">
+              <button
+                className="btn primary"
+                type="submit"
+                disabled={guardando}
+              >
+                {guardando ? "Guardando..." : "Guardar configuración"}
+              </button>
+
+              <button
+                className="btn secondary"
+                type="button"
+                disabled={guardando}
+                onClick={() => navegar("/eventos")}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
     </section>
   );
 }
@@ -984,8 +1166,8 @@ function Today({ onNotify }) {
         estadoNuevo === "hecho"
           ? "Subtarea marcada como hecha."
           : estadoNuevo === "pospuesto"
-          ? "Subtarea pospuesta correctamente."
-          : "Subtarea marcada como pendiente."
+            ? "Subtarea pospuesta correctamente."
+            : "Subtarea marcada como pendiente."
       );
     } catch (errorActual) {
       onNotify(
@@ -1039,9 +1221,8 @@ function Today({ onNotify }) {
 
     return (
       <article
-        className={`today-task-card ${urgente ? "urgent-task" : ""} ${
-          hecha ? "done-task" : ""
-        } ${seleccionadaActual ? "selected-task" : ""}`}
+        className={`today-task-card ${urgente ? "urgent-task" : ""} ${hecha ? "done-task" : ""
+          } ${seleccionadaActual ? "selected-task" : ""}`}
         key={tarea.id}
         onClick={() => setSeleccionada(tarea)}
       >
@@ -1076,8 +1257,8 @@ function Today({ onNotify }) {
               {tarea.dia_objetivo
                 ? "Plazo: Hoy"
                 : tarea.evento?.fecha
-                ? "Evento programado para hoy"
-                : "Sin fecha específica"}
+                  ? "Evento programado para hoy"
+                  : "Sin fecha específica"}
             </span>
           </div>
         </div>
@@ -1426,11 +1607,12 @@ export default function App() {
     <Toast type={toast.type} message={toast.message} />
     {ruta === "/eventos" && <Eventos eventos={eventos} cargando={cargandoEventos} error={errorEventos} recargar={cargarEventos} crear={() => navegar("/crear-evento")} />}
     {ruta === "/hoy" && <Today onNotify={notify} />}
+    {ruta === "/configuracion" && (<ConfiguracionUsuario onNotify={notify} />)}
     {detalleId && <DetalleEvento id={detalleId} volver={() => navegar("/eventos")} onNotify={notify} onEventosChanged={cargarEventos} />}
     {ruta === "/crear-evento" && <CrearEventoPage onCancelar={() => navegar("/eventos")} onCrear={crear} />}
   </main>;
 
-  
+
 
 
 }
