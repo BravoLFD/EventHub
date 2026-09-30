@@ -3026,12 +3026,12 @@ small {
 .login-page {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: 32px 20px 20px;
   box-sizing: border-box;
 }
-
 
 
 /* =========================================================
@@ -3058,13 +3058,13 @@ small {
   display: flex;
   flex-direction: column;
   align-items: center;
-
   text-align: center;
   margin-bottom: 30px;
 }
 
 
 /* LOGO COMPLETO EVENTHUB */
+
 .login-logo {
   display: block;
   width: 270px;
@@ -3073,16 +3073,14 @@ small {
   margin: 0 auto 20px;
 }
 
+
 /* SUBTÍTULO */
 
 .login-brand p {
   margin: 8px 0 6px;
-
   color: #64748b;
-
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
-
   letter-spacing: 0.2px;
 }
 
@@ -3092,16 +3090,11 @@ small {
 .security-badge {
   display: inline-flex;
   align-items: center;
-
-  padding: 2px 7px;
-
+  padding: 3px 8px;
   border-radius: 5px;
-
   background: #eef3ff;
-
   color: #3157c9;
-
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 500;
 }
 
@@ -3113,20 +3106,14 @@ small {
 .login-error {
   display: flex;
   flex-direction: column;
-
-  gap: 4px;
-
+  gap: 5px;
   margin-bottom: 16px;
-  padding: 10px 12px;
-
+  padding: 11px 13px;
   border: 1px solid #fecaca;
   border-radius: 6px;
-
   background: #fef2f2;
-
   color: #991b1b;
-
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .login-error span {
@@ -3141,14 +3128,12 @@ small {
 .login-card form {
   display: flex;
   flex-direction: column;
-
   gap: 15px;
 }
 
 .login-field {
   display: flex;
   flex-direction: column;
-
   gap: 6px;
 }
 
@@ -3158,48 +3143,36 @@ small {
   font-weight: 600;
 }
 
+
 /* =========================================================
    INPUTS
    ========================================================= */
 
 .login-input-wrapper {
   position: relative;
-
   width: 100%;
 }
 
 .login-input-icon {
   position: absolute;
-
   left: 12px;
   top: 50%;
-
   transform: translateY(-50%);
-
   color: #718096;
-
-  font-size: 13px;
-
+  font-size: 14px;
   pointer-events: none;
 }
 
 .login-input-wrapper input {
   width: 100%;
-  height: 26px;
-
-  padding: 5px 30px;
-
+  height: 32px;
+  padding: 6px 32px;
   border: 0;
   border-radius: 3px;
-
   outline: none;
-
   background: #edf0f4;
-
   color: #172033;
-
-  font-size: 10px;
-
+  font-size: 12px;
   transition:
     background 0.2s ease,
     box-shadow 0.2s ease;
@@ -3215,7 +3188,6 @@ small {
 
 .login-input-wrapper input:focus {
   background: #ffffff;
-
   box-shadow:
     0 0 0 1px #3157c9;
 }
@@ -3227,28 +3199,19 @@ small {
 
 .login-password-toggle {
   position: absolute;
-
   right: 7px;
   top: 50%;
-
   transform: translateY(-50%);
-
   width: 24px;
   height: 24px;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   padding: 0;
-
   border: 0;
   background: transparent;
-
   color: #718096;
-
-  font-size: 12px;
-
+  font-size: 13px;
   cursor: pointer;
 }
 
@@ -3270,50 +3233,35 @@ small {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-
   margin-top: -2px;
-
   gap: 10px;
 }
 
 .remember-option {
   display: flex;
   align-items: flex-start;
-
   gap: 6px;
-
   color: #64748b;
-
-  font-size: 9px;
-
+  font-size: 11px;
   line-height: 1.35;
-
   cursor: pointer;
 }
 
 .remember-option input {
-  width: 12px;
-  height: 12px;
-
+  width: 13px;
+  height: 13px;
   margin: 0;
-
   accent-color: #0738a5;
 }
 
 .forgot-password {
   padding: 0;
-
   border: 0;
-
   background: transparent;
-
   color: #0738a5;
-
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
-
   line-height: 1.25;
-
   text-align: right;
 }
 
@@ -3328,23 +3276,16 @@ small {
 
 .login-submit {
   width: 100%;
-  height: 42px;
-
+  height: 48px;
   margin-top: 2px;
-
   border: 0;
   border-radius: 5px;
-
   background: #06349f;
-
   color: #ffffff;
-
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-
   box-shadow:
     0 3px 6px rgba(6, 52, 159, 0.25);
-
   transition:
     background 0.2s ease,
     transform 0.15s ease,
@@ -3353,7 +3294,6 @@ small {
 
 .login-submit:hover:not(:disabled) {
   background: #052d8a;
-
   box-shadow:
     0 5px 10px rgba(6, 52, 159, 0.28);
 }
@@ -3364,7 +3304,6 @@ small {
 
 .login-submit:disabled {
   opacity: 0.7;
-
   cursor: wait;
 }
 
@@ -3376,28 +3315,21 @@ small {
 .corporate-divider {
   display: flex;
   align-items: center;
-
   gap: 8px;
-
   margin-top: 23px;
   margin-bottom: 16px;
 }
 
 .corporate-divider span {
   flex: 1;
-
   height: 1px;
-
   background: #e4e7ec;
 }
 
 .corporate-divider p {
   margin: 0;
-
   color: #8a93a3;
-
-  font-size: 9px;
-
+  font-size: 10px;
   white-space: nowrap;
 }
 
@@ -3406,46 +3338,37 @@ small {
 
 .corporate-buttons {
   display: grid;
-
   grid-template-columns: 1fr 1fr;
-
   gap: 10px;
 }
 
 .corporate-button {
-  height: 24px;
-
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-
   gap: 6px;
-
   padding: 0;
-
   border: 0;
   border-radius: 4px;
-
   background: #f0f2f5;
-
   color: #253044;
-
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .corporate-button:disabled {
   opacity: 0.85;
-
   cursor: not-allowed;
 }
 
 .corporate-icon {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   object-fit: contain;
   flex-shrink: 0;
 }
+
 
 /* =========================================================
    AVISO DE SEGURIDAD
@@ -3454,21 +3377,13 @@ small {
 .security-message {
   display: flex;
   align-items: flex-start;
-
-  gap: 8px;
-
+  gap: 9px;
   margin-top: 17px;
-
-  padding: 10px 11px;
-
+  padding: 11px 12px;
   border-radius: 3px;
-
   background: #f0f2f5;
-
   color: #667085;
-
-  font-size: 8px;
-
+  font-size: 10px;
   line-height: 1.4;
 }
 
@@ -3478,7 +3393,7 @@ small {
 .security-message-icon {
   flex-shrink: 0;
   color: #0738a5;
-  font-size: 16px;
+  font-size: 17px;
 }
 
 
@@ -3487,26 +3402,21 @@ small {
    ========================================================= */
 
 .login-footer {
+  width: 100%;
+  max-width: 470px;
   margin-top: 14px;
-
   color: #778196;
-
-  font-size: 9px;
-
+  font-size: 10px;
   line-height: 1.5;
-
   text-align: center;
+  box-sizing: border-box;
 }
 
 .login-footer button {
   padding: 0;
-
   border: 0;
-
   background: transparent;
-
   color: #667085;
-
   font-size: inherit;
 }
 
@@ -3521,18 +3431,45 @@ small {
 
 .inline-error {
   margin: 0;
-
   color: #b91c1c;
-
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .error-close {
   border: 0;
   background: transparent;
   color: #991b1b;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
   line-height: 1;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 520px) {
+  .login-page {
+    padding: 20px 14px;
+  }
+
+  .login-card {
+    padding: 30px 24px;
+    border-radius: 12px;
+  }
+
+  .login-logo {
+    width: 240px;
+  }
+
+  .login-brand p {
+    font-size: 12px;
+  }
+
+  .login-footer {
+    max-width: 100%;
+    font-size: 9px;
+  }
 }
