@@ -1675,19 +1675,26 @@ function Today({ onNotify }) {
   const [error, setError] = useState("");
   const [actualizando, setActualizando] = useState(null);
   const [seleccionada, setSeleccionada] = useState(null);
+  const [capacidadDiaria, setCapacidadDiaria] = useState(6);
 
   const cargarHoy = async () => {
     setCargando(true);
     setError("");
 
     try {
-      const [eventosData, subtareasData] = await Promise.all([
+      const [eventosData, subtareasData, configuracionData] = await Promise.all([
         obtenerEventos(),
         obtenerSubtareas(),
+        obtenerConfiguracionUsuario(),
       ]);
 
       const listaEventos = Array.isArray(eventosData) ? eventosData : [];
       const listaSubtareas = Array.isArray(subtareasData) ? subtareasData : [];
+      const horasConfiguradas = Number(configuracionData?.horas_dia);
+
+      if (Number.isInteger(horasConfiguradas) && horasConfiguradas > 0) {
+        setCapacidadDiaria(horasConfiguradas);
+      }
       const eventosPorId = new Map(
         listaEventos.map((evento) => [String(evento.id), evento])
       );
@@ -1807,7 +1814,6 @@ function Today({ onNotify }) {
     0
   );
 
-  const capacidadDiaria = 6;
   const porcentajeCapacidad = Math.min(
     Math.round((horasPendientes / capacidadDiaria) * 100),
     100

@@ -3025,22 +3025,13 @@ small {
 
 .login-page {
   min-height: 100vh;
-
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-
-  padding: 28px 20px 18px;
-
-  background:
-    radial-gradient(circle at 50% 0%,
-      rgba(31, 65, 180, 0.07),
-      transparent 40%),
-    #f5f7fb;
-
+  padding: 32px;
   box-sizing: border-box;
 }
+
 
 
 /* =========================================================
@@ -3049,18 +3040,12 @@ small {
 
 .login-card {
   width: 100%;
-  max-width: 335px;
-
-  padding: 26px 33px 28px;
-
+  max-width: 470px;
+  padding: 40px;
   background: #ffffff;
-
-  border: 0;
-  border-radius: 6px;
-
-  box-shadow:
-    0 8px 22px rgba(15, 23, 42, 0.12);
-
+  border: 1px solid #d8dee9;
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
   box-sizing: border-box;
 }
 
@@ -3074,18 +3059,18 @@ small {
   flex-direction: column;
   align-items: center;
 
-  margin-bottom: 25px;
-
   text-align: center;
+  margin-bottom: 30px;
 }
 
 
 /* LOGO COMPLETO EVENTHUB */
 .login-logo {
-  object-fit: contain;
-  width: 310px;
-  height: auto;
   display: block;
+  width: 270px;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto 20px;
 }
 
 /* SUBTÍTULO */
@@ -3095,7 +3080,7 @@ small {
 
   color: #64748b;
 
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 500;
 
   letter-spacing: 0.2px;
@@ -3169,11 +3154,9 @@ small {
 
 .login-field label {
   color: #172033;
-
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
-
 
 /* =========================================================
    INPUTS
