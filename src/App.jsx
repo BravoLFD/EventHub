@@ -1612,8 +1612,5 @@ export default function App() {
     {ruta === "/crear-evento" && <CrearEventoPage onCancelar={() => navegar("/eventos")} onCrear={crear} />}
   </main>;
 
-
-
-/*adadwad*/
 }
 
