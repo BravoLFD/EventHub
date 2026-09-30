@@ -1,4 +1,6 @@
 import "./App.css";
+import logoEVentHub from "./assets/Logo.png";
+import logo_Jaguar from "./assets/Logo_Jaguar.png";
 import { useEffect, useRef, useState } from "react";
 import {
   actualizarEvento,
@@ -133,9 +135,9 @@ function Modal({ title, subtitle, close, children, wide = false }) {
 function Header({ ruta, abrirCrear }) {
   return (
     <header>
-      <button className="brand" type="button" onClick={() => navegar("/eventos")}><span className="brand-icon">✦</span>EventHub</button>
+      <button className="brand" type="button" onClick={() => navegar("/eventos")}><span className="brand-icon"><img src={logo_Jaguar} alt="EventHub" /></span>EventHub</button>
       <nav aria-label="Navegación principal">
-        <button className={ruta === "/eventos" || ruta.startsWith("/eventos/") ? "nav-link active" : "nav-link"} onClick={() => navegar("/eventos")}>✦ Eventos</button>
+        <button className={ruta === "/eventos" || ruta.startsWith("/eventos/") ? "nav-link active" : "nav-link"} onClick={() => navegar("/eventos")}><img src={logo_Jaguar} alt="EventHub" /> Eventos</button>
         <button className={ruta === "/hoy" ? "nav-link active" : "nav-link"} onClick={() => navegar("/hoy")}> Hoy</button>
       </nav>
       <div className="header-spacer" />
@@ -206,16 +208,25 @@ function Login({ onLogin }) {
   return (
     <main className="login-page">
       <section className="login-card">
-        <div className="login-header">
-          <span className="brand-icon">✦</span>
 
-          <h1>Iniciar sesión</h1>
+        {/* LOGO */}
+        <div className="login-brand">
+          <img
+            src={logo_EventHub}
+            alt="EventHub"
+            className="login-logo"
+          />
 
-          <p>
-            Accede a EventHub para gestionar tus eventos.
+          <p className="login-subtitle">
+            PLATAFORMA DE GESTIÓN LOGÍSTICA DE EVENTOS
           </p>
+
+          <span className="security-badge">
+            🛡 Portal Operativo Seguro
+          </span>
         </div>
 
+        {/* ERROR DEL SERVIDOR */}
         {errorServidor && (
           <div className="login-error" role="alert">
             <strong>No fue posible iniciar sesión.</strong>
@@ -223,28 +234,37 @@ function Login({ onLogin }) {
           </div>
         )}
 
+        {/* FORMULARIO */}
         <form onSubmit={enviar} noValidate>
-          <div className="field">
+
+          <div className="login-field">
             <label htmlFor="login-email">
-              Correo electrónico
+              Correo electrónico o usuario
             </label>
 
-            <input
-              id="login-email"
-              type="email"
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                setErrores((prev) => ({
-                  ...prev,
-                  email: "",
-                }));
-                setErrorServidor("");
-              }}
-              autoComplete="email"
-              autoFocus
-              aria-invalid={Boolean(errores.email)}
-            />
+            <div className="login-input-wrapper">
+              <span className="login-input-icon">✉</span>
+
+              <input
+                id="login-email"
+                type="email"
+                placeholder="ejemplo@organizacion.com"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+
+                  setErrores((prev) => ({
+                    ...prev,
+                    email: "",
+                  }));
+
+                  setErrorServidor("");
+                }}
+                autoComplete="email"
+                autoFocus
+                aria-invalid={Boolean(errores.email)}
+              />
+            </div>
 
             {errores.email && (
               <p className="inline-error" role="alert">
@@ -253,26 +273,37 @@ function Login({ onLogin }) {
             )}
           </div>
 
-          <div className="field">
+          <div className="login-field">
             <label htmlFor="login-password">
               Contraseña
             </label>
 
-            <input
-              id="login-password"
-              type="password"
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-                setErrores((prev) => ({
-                  ...prev,
-                  password: "",
-                }));
-                setErrorServidor("");
-              }}
-              autoComplete="current-password"
-              aria-invalid={Boolean(errores.password)}
-            />
+            <div className="login-input-wrapper">
+              <span className="login-input-icon">♙</span>
+
+              <input
+                id="login-password"
+                type="password"
+                placeholder="••••••••••••"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+
+                  setErrores((prev) => ({
+                    ...prev,
+                    password: "",
+                  }));
+
+                  setErrorServidor("");
+                }}
+                autoComplete="current-password"
+                aria-invalid={Boolean(errores.password)}
+              />
+
+              <span className="login-password-icon">
+                ◉
+              </span>
+            </div>
 
             {errores.password && (
               <p className="inline-error" role="alert">
@@ -281,15 +312,112 @@ function Login({ onLogin }) {
             )}
           </div>
 
+          {/* OPCIONES */}
+          <div className="login-options">
+
+            <label className="remember-option">
+              <input type="checkbox" />
+              <span>
+                Recordar sesión en este equipo
+              </span>
+            </label>
+
+            <button
+              type="button"
+              className="forgot-password"
+              disabled
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+
+          </div>
+
+          {/* LOGIN */}
           <button
-            className="btn primary login-submit"
+            className="login-submit"
             type="submit"
             disabled={enviando}
           >
-            {enviando ? "Iniciando sesión..." : "Iniciar sesión"}
+            {enviando
+              ? "Iniciando sesión..."
+              : (
+                <>
+                  Iniciar Sesión
+                  <span>→</span>
+                </>
+              )}
           </button>
+
         </form>
+
+        {/* LOGIN CORPORATIVO */}
+        <div className="corporate-divider">
+          <span></span>
+          <p>O CONTINUAR CON SSO CORPORATIVO</p>
+          <span></span>
+        </div>
+
+        <div className="corporate-buttons">
+
+          <button
+            type="button"
+            className="corporate-button"
+            disabled
+            title="Inicio de sesión con Google próximamente"
+          >
+            <span className="google-icon">G</span>
+            Google
+          </button>
+
+          <button
+            type="button"
+            className="corporate-button"
+            disabled
+            title="Inicio de sesión con Microsoft próximamente"
+          >
+            <span className="microsoft-icon">⊞</span>
+            Microsoft
+          </button>
+
+        </div>
+
+        <button
+          type="button"
+          className="security-test"
+          disabled
+        >
+          ⚙ Simular error seguro OWASP
+        </button>
+
+        {/* AVISO DE SEGURIDAD */}
+        <div className="security-message">
+          <img
+            src={logo_Jaguar}
+            alt=""
+            className="security-jaguar"
+          />
+
+          <span>
+            Conexión cifrada de extremo a extremo.
+            Acceso exclusivo para organizadores autorizados.
+          </span>
+        </div>
+
       </section>
+
+      {/* FOOTER */}
+      <footer className="login-footer">
+        <p>EventHub © 2025 • Todos los derechos reservados.</p>
+
+        <div>
+          <button type="button">Términos de servicio</button>
+          <span>•</span>
+          <button type="button">Política de privacidad</button>
+          <span>•</span>
+          <button type="button">Soporte TI</button>
+        </div>
+      </footer>
+
     </main>
   );
 }
@@ -807,10 +935,10 @@ function Eventos({ eventos, cargando, error, recargar, crear }) {
 
       {cargando && <section className="card state-card"><span className="spinner" /> Cargando eventos...</section>}
       {!cargando && error && <section className="card state-card error-state" role="alert"><div><b>No se pudieron cargar los eventos.</b><p>{error}</p></div><button className="btn ghost" onClick={recargar}>Reintentar</button></section>}
-      {!cargando && !error && eventos.length === 0 && <section className="card empty-state"><div className="empty-icon">✦</div><h2>Aún no hay eventos</h2><p>¿Deseas crear tu primer evento?</p><button className="btn primary" onClick={crear}>Crear el primer evento</button></section>}
+      {!cargando && !error && eventos.length === 0 && <section className="card empty-state"><div className="empty-icon"><img src={logo_Jaguar} alt="EventHub" /></div><h2>Aún no hay eventos</h2><p>¿Deseas crear tu primer evento?</p><button className="btn primary" onClick={crear}>Crear el primer evento</button></section>}
       {!cargando && !error && eventos.length > 0 && <section className="event-grid" aria-label="Eventos guardados">
         {eventos.map((evento) => <article className="event-card card" key={evento.id ?? `${evento.titulo}-${evento.fecha}`}>
-          <div className="event-card-icon">✦</div>
+          <div className="event-card-icon"><img src={logo_Jaguar} alt="EventHub" /></div>
           <div className="event-card-content"><span className="status-pill">● En preparación</span><h2>{evento.titulo}</h2><p>{formatearFecha(evento.fecha)} {evento.horas ? `• ${evento.horas} horas` : ""}</p>{evento.descripcion && <p className="muted-line">{evento.descripcion}</p>}</div>
           <button className="btn secondary" onClick={() => navegar(`/eventos/${evento.id}`)}>Ver detalle</button>
         </article>)}
@@ -909,7 +1037,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
         <div className="section-tabs"><span className="tab active">Con subtareas ({subtareas.length})</span><span className="tab">Estado Vacío</span><span className="tab">Estado de Carga</span><span className="tab">Estado de Error</span></div>
         {estadoSubtareas === "loading" && <div className="state-inside"><span className="spinner" /> Cargando subtareas...</div>}
         {estadoSubtareas === "error" && <div className="state-inside error-inside" role="alert"><div><b>Error cargando las subtareas</b><p>{errorSubtareas}</p></div><button className="btn ghost" onClick={cargarSubtareas}>Reintentar</button></div>}
-        {estadoSubtareas === "empty" && <div className="empty-subtasks"><div className="empty-icon">✦</div><h3>Aún no hay subtareas</h3><p>Agrega una subtarea para organizar este evento.</p><button className="btn primary" onClick={() => setModal("create-subtask")}>＋ Nueva subtarea</button></div>}
+        {estadoSubtareas === "empty" && <div className="empty-subtasks"><div className="empty-icon"><img src={logo_Jaguar} alt="EventHub" /></div><h3>Aún no hay subtareas</h3><p>Agrega una subtarea para organizar este evento.</p><button className="btn primary" onClick={() => setModal("create-subtask")}>＋ Nueva subtarea</button></div>}
         {estadoSubtareas === "success" && <div className="subtask-list">
           {subtareas.map((task) => {
             const estado = normalizarEstado(task.estado);
