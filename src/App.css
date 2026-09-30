@@ -20,11 +20,9 @@
 
 body {
   background:
-    radial-gradient(
-      circle at 8% 0%,
+    radial-gradient(circle at 8% 0%,
       rgba(49, 91, 213, 0.055),
-      transparent 28%
-    ),
+      transparent 28%),
     #f7f9fc;
 
   color: var(--ink);
@@ -101,11 +99,9 @@ header {
   border-radius: 9px;
 
   background:
-    linear-gradient(
-      135deg,
+    linear-gradient(135deg,
       #315bd5,
-      #2448b8
-    );
+      #2448b8);
 
   color: #fff;
 
@@ -365,11 +361,9 @@ small {
 
 .primary {
   background:
-    linear-gradient(
-      135deg,
+    linear-gradient(135deg,
       #315bd5,
-      #274dc0
-    );
+      #274dc0);
 
   color: #fff;
 
@@ -379,11 +373,9 @@ small {
 
 .primary:hover:not(:disabled) {
   background:
-    linear-gradient(
-      135deg,
+    linear-gradient(135deg,
       #3964df,
-      #294fca
-    );
+      #294fca);
 
   box-shadow:
     0 10px 23px rgba(49, 91, 213, 0.28);
@@ -468,12 +460,10 @@ small {
   border-color: rgba(49, 91, 213, 0.12);
 
   background:
-    linear-gradient(
-      135deg,
+    linear-gradient(135deg,
       #2949aa 0%,
       #315bd5 55%,
-      #4770e3 100%
-    );
+      #4770e3 100%);
 
   color: #fff;
 
@@ -1110,7 +1100,7 @@ small {
   font-size: 12px;
 }
 
-.progress-card > strong {
+.progress-card>strong {
   color: var(--blue);
 }
 
@@ -1191,16 +1181,14 @@ small {
     opacity: 0;
 
     transform:
-      translateY(10px)
-      scale(0.98);
+      translateY(10px) scale(0.98);
   }
 
   to {
     opacity: 1;
 
     transform:
-      translateY(0)
-      scale(1);
+      translateY(0) scale(1);
   }
 }
 
@@ -1521,9 +1509,9 @@ small {
   margin-bottom: 8px;
 }
 
-.create-form-card .field-header + input,
-.create-form-card .field-header + textarea,
-.create-form-card .field-header + select {
+.create-form-card .field-header+input,
+.create-form-card .field-header+textarea,
+.create-form-card .field-header+select {
   width: 100%;
 }
 
@@ -1575,7 +1563,7 @@ small {
   margin-top: 0;
 }
 
-.create-form-card .form-two-columns > div .field-header {
+.create-form-card .form-two-columns>div .field-header {
   margin-top: 25px;
 }
 
@@ -1805,16 +1793,14 @@ small {
   position: relative;
 
   background:
-    linear-gradient(
-      135deg,
+    linear-gradient(135deg,
       #b89c79 0%,
       #d7c2a5 35%,
       #8b715a 36%,
       #d7d0c3 37%,
       #b4a38d 62%,
       #6e6259 63%,
-      #c9b9a0 100%
-    );
+      #c9b9a0 100%);
 }
 
 .venue-image::after {
@@ -1829,12 +1815,10 @@ small {
   border-bottom: 0;
 
   background:
-    linear-gradient(
-      90deg,
+    linear-gradient(90deg,
       transparent 48%,
       #ffffff55 49%,
-      transparent 51%
-    );
+      transparent 51%);
 
   opacity: 0.65;
 }
@@ -2000,11 +1984,9 @@ small {
   height: 100%;
 
   background:
-    linear-gradient(
-      90deg,
+    linear-gradient(90deg,
       #315bd5,
-      #5679e6
-    );
+      #5679e6);
 
   border-radius: inherit;
 }
@@ -2469,11 +2451,9 @@ small {
   border: 1px solid #315bd5;
 
   background:
-    linear-gradient(
-      135deg,
+    linear-gradient(135deg,
       #315bd5,
-      #274dc0
-    );
+      #274dc0);
 
   color: #fff;
 
@@ -2733,7 +2713,7 @@ small {
       auto 1fr;
   }
 
-  .progress-card > strong {
+  .progress-card>strong {
     grid-column: 2;
 
     grid-row: 1;
@@ -2812,11 +2792,9 @@ small {
 
   border: 1px solid #d8e1f5;
 
-  background: linear-gradient(
-    145deg,
-    #f3f6ff,
-    #e8eeff
-  );
+  background: linear-gradient(145deg,
+      #f3f6ff,
+      #e8eeff);
 
   color: #315bd5;
 
@@ -2842,11 +2820,9 @@ small {
 .info-block:hover .info-icon {
   transform: translateY(-2px);
 
-  background: linear-gradient(
-    145deg,
-    #e9efff,
-    #dfe8ff
-  );
+  background: linear-gradient(145deg,
+      #e9efff,
+      #dfe8ff);
 
   box-shadow:
     0 6px 14px rgba(49, 91, 213, 0.12);
@@ -2856,9 +2832,10 @@ small {
   margin-top: 147px;
 }
 
-.icon-button + .icon-button {
+.icon-button+.icon-button {
   margin-left: -11px;
 }
+
 /*CONFIGURACIÓN DEL USUARIO*/
 
 
@@ -3041,6 +3018,7 @@ small {
   border: 0;
   cursor: pointer;
 }
+
 /* =========================================================
    LOGIN
    ========================================================= */
@@ -3056,11 +3034,9 @@ small {
   padding: 28px 20px 18px;
 
   background:
-    radial-gradient(
-      circle at 50% 0%,
+    radial-gradient(circle at 50% 0%,
       rgba(31, 65, 180, 0.07),
-      transparent 40%
-    ),
+      transparent 40%),
     #f5f7fb;
 
   box-sizing: border-box;
@@ -3537,13 +3513,10 @@ small {
 /* ICONO DE SEGURIDAD */
 
 .security-message-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
   flex-shrink: 0;
-
-  color: #0738a5;
-
-  font-size: 10px;
-
-  line-height: 1;
 }
 
 
