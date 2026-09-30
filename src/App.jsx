@@ -1,6 +1,9 @@
 import "./App.css";
 import logo_EventHub from "./assets/Logo.png";
 import logo_Jaguar from "./assets/Logo_Jaguar.png";
+import { FaLock } from "react-icons/fa";
+import Google from "./assets/Google.png";
+import Microsoft from "./assets/Microsoft.png";
 import { useEffect, useRef, useState } from "react";
 import {
   actualizarEvento,
@@ -268,7 +271,7 @@ function Login({ onLogin }) {
 
             {errores.email && (
               <p className="inline-error" role="alert">
-                ⊗ {errores.email}
+                X {errores.email}
               </p>
             )}
           </div>
@@ -307,7 +310,7 @@ function Login({ onLogin }) {
 
             {errores.password && (
               <p className="inline-error" role="alert">
-                ⊗ {errores.password}
+                X {errores.password}
               </p>
             )}
           </div>
@@ -365,7 +368,11 @@ function Login({ onLogin }) {
             disabled
             title="Inicio de sesión con Google próximamente"
           >
-            <span className="google-icon">G</span>
+            <img
+              src={Google}
+              alt=""
+              className="corporate-icon"
+            />
             Google
           </button>
 
@@ -375,22 +382,25 @@ function Login({ onLogin }) {
             disabled
             title="Inicio de sesión con Microsoft próximamente"
           >
-            <span className="microsoft-icon">⊞</span>
+            <img
+              src={Microsoft}
+              alt=""
+              className="corporate-icon"
+            />
             Microsoft
           </button>
 
         </div>
 
-        <button
-          type="button"
-          className="security-test"
-          disabled
-        >
-          ⚙ Simular error seguro OWASP
-        </button>
-
         {/* AVISO DE SEGURIDAD */}
-        <div className="security-message"> <img src={logo_Jaguar} alt="" className="security-message-icon" /> <span> Conexión cifrada de extremo a extremo. Acceso exclusivo para organizadores autorizados. </span> </div>
+        <div className="security-message">
+          <FaLock className="security-message-icon" />
+
+          <span>
+            Conexión cifrada de extremo a extremo.
+            Acceso exclusivo para organizadores autorizados.
+          </span>
+        </div>
 
       </section>
 
@@ -534,7 +544,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
     <form onSubmit={enviar} noValidate>
       <div className="field-header"><label htmlFor="titulo">Título del evento <span>*</span></label><small>Obligatorio</small></div>
       <input id="titulo" name="titulo" value={formulario.titulo} onChange={actualizar} placeholder="Ej. Conferencia de Tecnología 2026" aria-invalid={Boolean(errores.titulo)} autoFocus />
-      {errores.titulo && <p className="inline-error" role="alert">⊗ {errores.titulo}</p>}
+      {errores.titulo && <p className="inline-error" role="alert">X {errores.titulo}</p>}
 
       <div className="form-two-columns">
         <div>
@@ -549,7 +559,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
             aria-invalid={Boolean(errores.fecha)}
           />
           {errores.fecha ? (
-            <p className="inline-error" role="alert">⊗ {errores.fecha}</p>
+            <p className="inline-error" role="alert">X {errores.fecha}</p>
           ) : (
             <p className="helper">ⓘ La fecha debe ser hoy o una fecha futura</p>
           )}
@@ -568,7 +578,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
             placeholder="4"
             aria-invalid={Boolean(errores.horas)}
           />
-          {errores.horas && <p className="inline-error" role="alert">⊗ {errores.horas}</p>}
+          {errores.horas && <p className="inline-error" role="alert">X {errores.horas}</p>}
           {!errores.horas && <p className="helper">ⓘ Las horas deben ser entre 1 y 24</p>}
         </div>
       </div>
@@ -591,7 +601,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
 
       {errores.usuario_responsable && (
         <p className="inline-error" role="alert">
-          ⊗ {errores.usuario_responsable}
+          X {errores.usuario_responsable}
         </p>
       )}
 
@@ -607,69 +617,205 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   );
 }
 
-function CrearSubtareaForm({ eventoId, onCancelar, onCreada }) {
-  const [form, setForm] = useState({ nombre: "", horas: "", estado: "pendiente" });
+function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
+  const [form, setForm] = useState({
+    nombre: "",
+    horas: "",
+    estado: "pendiente",
+    dia_objetivo: eventoFecha || "",
+  });
+
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [enviando, setEnviando] = useState(false);
 
   const actualizar = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    setErrores((prev) => ({ ...prev, [name]: "" }));
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    setErrores((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
+
     setErrorServidor("");
   };
 
   const enviar = async (event) => {
     event.preventDefault();
+
     const next = {};
-    if (!form.nombre.trim()) next.nombre = "El nombre de la subtarea es requerido.";
-    if (!form.horas || Number(form.horas) <= 0 || !Number.isInteger(Number(form.horas))) next.horas = "Las horas deben ser mayor a 0.";
+
+    if (!form.nombre.trim()) {
+      next.nombre = "El nombre de la subtarea es requerido.";
+    }
+
+    if (
+      !form.horas ||
+      Number(form.horas) <= 0 ||
+      !Number.isInteger(Number(form.horas))
+    ) {
+      next.horas = "Las horas deben ser mayor a 0.";
+    }
+
+    if (!form.dia_objetivo) {
+      next.dia_objetivo = "El día objetivo es requerido.";
+    }
+
     setErrores(next);
+
     if (Object.keys(next).length) return;
 
     setEnviando(true);
+    setErrorServidor("");
+
     try {
       await crearSubtarea({
         evento_id: eventoId,
         titulo: form.nombre.trim(),
+        dia_objetivo: form.dia_objetivo,
         horas_estimadas: Number(form.horas),
         estado: form.estado,
       });
+
       onCreada();
     } catch (error) {
-      setErrorServidor(error.message);
+      console.error("Error al crear subtarea:", error);
+      setErrorServidor(
+        error.message || "No fue posible crear la subtarea."
+      );
       setEnviando(false);
     }
   };
 
   return (
     <form onSubmit={enviar} noValidate>
-      <div className="field-header"><label htmlFor="sub-nombre">Nombre de la subtarea <span>*</span></label></div>
-      <input id="sub-nombre" name="nombre" value={form.nombre} onChange={actualizar} placeholder="Ej. Preparar presentación" aria-invalid={Boolean(errores.nombre)} autoFocus />
-      {errores.nombre && <p className="inline-error" role="alert">⊗ {errores.nombre}</p>}
+      <div className="field-header">
+        <label htmlFor="sub-nombre">
+          Nombre de la subtarea <span>*</span>
+        </label>
+      </div>
+
+      <input
+        id="sub-nombre"
+        name="nombre"
+        value={form.nombre}
+        onChange={actualizar}
+        placeholder="Ej. Preparar presentación"
+        aria-invalid={Boolean(errores.nombre)}
+        autoFocus
+      />
+
+      {errores.nombre && (
+        <p className="inline-error" role="alert">
+          X {errores.nombre}
+        </p>
+      )}
 
       <div className="form-two-columns">
         <div>
-          <div className="field-header"><label htmlFor="sub-horas">Horas <span>*</span></label></div>
-          <input id="sub-horas" name="horas" type="number" min="1" step="1" value={form.horas} onChange={actualizar} placeholder="2" aria-invalid={Boolean(errores.horas)} />
-          {errores.horas ? <p className="inline-error" role="alert">⊗ {errores.horas}</p> : <p className="helper">ⓘ Las horas deben ser mayor a 0</p>}
+          <div className="field-header">
+            <label htmlFor="sub-horas">
+              Horas <span>*</span>
+            </label>
+          </div>
+
+          <input
+            id="sub-horas"
+            name="horas"
+            type="number"
+            min="1"
+            max="24"
+            step="1"
+            value={form.horas}
+            onChange={actualizar}
+            placeholder="2"
+            aria-invalid={Boolean(errores.horas)}
+          />
+
+          {errores.horas ? (
+            <p className="inline-error" role="alert">
+              X {errores.horas}
+            </p>
+          ) : (
+            <p className="helper">
+              ⓘ Las horas deben ser entre 1 y 24
+            </p>
+          )}
         </div>
+
         <div>
-          <div className="field-header"><label htmlFor="sub-estado">Estado</label></div>
-          <select id="sub-estado" name="estado" value={form.estado} onChange={actualizar}>
+          <div className="field-header">
+            <label htmlFor="sub-estado">Estado</label>
+          </div>
+
+          <select
+            id="sub-estado"
+            name="estado"
+            value={form.estado}
+            onChange={actualizar}
+          >
             <option value="pendiente">Pendiente</option>
             <option value="hecho">Hecho</option>
             <option value="pospuesto">Pospuesto</option>
           </select>
-          <p className="helper">Estado inicial asignado</p>
+
+          <p className="helper">
+            Estado inicial asignado
+          </p>
         </div>
       </div>
 
-      {errorServidor && <div className="alert alert-error" role="alert"><b>No fue posible crear la subtarea.</b><span>{errorServidor}</span></div>}
+      <div className="field-header">
+        <label htmlFor="sub-dia-objetivo">
+          Día objetivo <span>*</span>
+        </label>
+      </div>
+
+      <input
+        id="sub-dia-objetivo"
+        name="dia_objetivo"
+        type="date"
+        value={form.dia_objetivo}
+        onChange={actualizar}
+        aria-invalid={Boolean(errores.dia_objetivo)}
+      />
+
+      {errores.dia_objetivo && (
+        <p className="inline-error" role="alert">
+          X {errores.dia_objetivo}
+        </p>
+      )}
+
+      {errorServidor && (
+        <div className="alert alert-error" role="alert">
+          <b>No fue posible crear la subtarea.</b>
+          <span>{errorServidor}</span>
+        </div>
+      )}
+
       <div className="actions">
-        <button className="btn ghost" type="button" onClick={onCancelar} disabled={enviando}>Cancelar</button>
-        <button className="btn primary" type="submit" disabled={enviando}>{enviando && <span className="mini-spinner" />} {enviando ? "Creando…" : "Crear subtarea"}</button>
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={onCancelar}
+          disabled={enviando}
+        >
+          Cancelar
+        </button>
+
+        <button
+          className="btn primary"
+          type="submit"
+          disabled={enviando}
+        >
+          {enviando && <span className="mini-spinner" />}
+          {enviando ? "Creando…" : "Crear subtarea"}
+        </button>
       </div>
     </form>
   );
@@ -785,7 +931,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
     <form onSubmit={enviar} noValidate>
       <div className="field-header"><label htmlFor="edit-titulo">Título del evento <span>*</span></label></div>
       <input id="edit-titulo" name="titulo" value={formulario.titulo} onChange={actualizar} aria-invalid={Boolean(errores.titulo)} autoFocus />
-      {errores.titulo && <p className="inline-error" role="alert">⊗ {errores.titulo}</p>}
+      {errores.titulo && <p className="inline-error" role="alert">X {errores.titulo}</p>}
       <div className="form-two-columns">
         <div>
           <div className="field-header"><label htmlFor="edit-fecha">Fecha del evento <span>*</span></label></div>
@@ -799,7 +945,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
             aria-invalid={Boolean(errores.fecha)}
           />
           {errores.fecha ? (
-            <p className="inline-error" role="alert">⊗ {errores.fecha}</p>
+            <p className="inline-error" role="alert">X {errores.fecha}</p>
           ) : (
             <p className="helper">ⓘ La fecha debe ser hoy o una fecha futura</p>
           )}
@@ -818,7 +964,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
             aria-invalid={Boolean(errores.horas)}
           />
           {errores.horas ? (
-            <p className="inline-error" role="alert">⊗ {errores.horas}</p>
+            <p className="inline-error" role="alert">X {errores.horas}</p>
           ) : (
             <p className="helper">ⓘ Las horas deben ser entre 1 y 24</p>
           )}
@@ -841,7 +987,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
 
       {errores.usuario_responsable && (
         <p className="inline-error" role="alert">
-          ⊗ {errores.usuario_responsable}
+          X {errores.usuario_responsable}
         </p>
       )}
       <div className="field-header"><label htmlFor="edit-descripcion">Descripción</label></div>
@@ -856,66 +1002,203 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
 }
 
 function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
-  const [form, setForm] = useState({ nombre: subtarea?.titulo ?? subtarea?.nombre ?? "", horas: subtarea?.horas_estimadas ?? subtarea?.horas ?? "", estado: normalizarEstado(subtarea?.estado) });
+  const [form, setForm] = useState({
+    nombre: subtarea?.titulo ?? subtarea?.nombre ?? "",
+    horas: subtarea?.horas_estimadas ?? subtarea?.horas ?? "",
+    estado: normalizarEstado(subtarea?.estado),
+    dia_objetivo: subtarea?.dia_objetivo ?? "",
+  });
+
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [guardando, setGuardando] = useState(false);
+
   const actualizar = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    setErrores((prev) => ({ ...prev, [name]: "" }));
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    setErrores((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
+
     setErrorServidor("");
   };
+
   const enviar = async (event) => {
     event.preventDefault();
+
     const next = {};
-    if (!form.nombre.trim()) next.nombre = "El nombre de la subtarea es requerido.";
-    if (!form.horas || Number(form.horas) <= 0 || !Number.isInteger(Number(form.horas))) next.horas = "Las horas deben ser mayor a 0.";
+
+    if (!form.nombre.trim()) {
+      next.nombre = "El nombre de la subtarea es requerido.";
+    }
+
+    if (
+      !form.horas ||
+      Number(form.horas) <= 0 ||
+      !Number.isInteger(Number(form.horas))
+    ) {
+      next.horas = "Las horas deben ser mayor a 0.";
+    }
+
+    if (!form.dia_objetivo) {
+      next.dia_objetivo = "El día objetivo es requerido.";
+    }
+
     setErrores(next);
-    if (Object.keys(next).length) return;
+
+    if (Object.keys(next).length) {
+      return;
+    }
+
     setGuardando(true);
+    setErrorServidor("");
+
     try {
       await actualizarSubtarea(subtarea.id, {
         evento_id: eventoId,
         titulo: form.nombre.trim(),
+        dia_objetivo: form.dia_objetivo,
         horas_estimadas: Number(form.horas),
         estado: form.estado,
       });
+
       onGuardado();
     } catch (error) {
-      setErrorServidor(error.message);
+      console.error("Error al actualizar subtarea:", error);
+
+      setErrorServidor(
+        error?.message || "No fue posible actualizar la subtarea."
+      );
+
       setGuardando(false);
     }
   };
+
   return (
     <form onSubmit={enviar} noValidate>
-      <div className="field-header"><label htmlFor="edit-sub-nombre">Nombre de la subtarea <span>*</span></label></div>
-      <input id="edit-sub-nombre" name="nombre" value={form.nombre} onChange={actualizar} aria-invalid={Boolean(errores.nombre)} autoFocus />
-      {errores.nombre && <p className="inline-error" role="alert">⊗ {errores.nombre}</p>}
+      <div className="field-header">
+        <label htmlFor="edit-sub-nombre">
+          Nombre de la subtarea <span>*</span>
+        </label>
+      </div>
+
+      <input
+        id="edit-sub-nombre"
+        name="nombre"
+        value={form.nombre}
+        onChange={actualizar}
+        aria-invalid={Boolean(errores.nombre)}
+        autoFocus
+      />
+
+      {errores.nombre && (
+        <p className="inline-error" role="alert">
+          X {errores.nombre}
+        </p>
+      )}
+
       <div className="form-two-columns">
         <div>
-          <div className="field-header"><label htmlFor="edit-sub-horas">Horas <span>*</span></label></div>
-          <input id="edit-sub-horas" name="horas" type="number" min="1" step="1" value={form.horas} onChange={actualizar} aria-invalid={Boolean(errores.horas)} />
-          {errores.horas && <p className="inline-error" role="alert">⊗ {errores.horas}</p>}
+          <div className="field-header">
+            <label htmlFor="edit-sub-horas">
+              Horas <span>*</span>
+            </label>
+          </div>
+
+          <input
+            id="edit-sub-horas"
+            name="horas"
+            type="number"
+            min="1"
+            step="1"
+            value={form.horas}
+            onChange={actualizar}
+            aria-invalid={Boolean(errores.horas)}
+          />
+
+          {errores.horas && (
+            <p className="inline-error" role="alert">
+              X {errores.horas}
+            </p>
+          )}
         </div>
+
         <div>
-          <div className="field-header"><label htmlFor="edit-sub-estado">Estado</label></div>
-          <select id="edit-sub-estado" name="estado" value={form.estado} onChange={actualizar}>
+          <div className="field-header">
+            <label htmlFor="edit-sub-estado">
+              Estado
+            </label>
+          </div>
+
+          <select
+            id="edit-sub-estado"
+            name="estado"
+            value={form.estado}
+            onChange={actualizar}
+          >
             <option value="pendiente">Pendiente</option>
             <option value="hecho">Hecho</option>
             <option value="pospuesto">Pospuesto</option>
           </select>
         </div>
       </div>
-      {errorServidor && <div className="alert alert-error" role="alert"><b>No fue posible actualizar la subtarea.</b><span>{errorServidor}</span></div>}
+
+      <div className="field-header">
+        <label htmlFor="edit-sub-dia-objetivo">
+          Día objetivo <span>*</span>
+        </label>
+      </div>
+
+      <input
+        id="edit-sub-dia-objetivo"
+        name="dia_objetivo"
+        type="date"
+        value={form.dia_objetivo}
+        onChange={actualizar}
+        aria-invalid={Boolean(errores.dia_objetivo)}
+      />
+
+      {errores.dia_objetivo && (
+        <p className="inline-error" role="alert">
+          X {errores.dia_objetivo}
+        </p>
+      )}
+
+      {errorServidor && (
+        <div className="alert alert-error" role="alert">
+          <b>No fue posible actualizar la subtarea.</b>
+          <span>{errorServidor}</span>
+        </div>
+      )}
+
       <div className="actions">
-        <button className="btn ghost" type="button" onClick={onCancelar} disabled={guardando}>Cancelar</button>
-        <button className="btn primary" type="submit" disabled={guardando}>{guardando && <span className="mini-spinner" />}{guardando ? "Guardando…" : "Guardar cambios"}</button>
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={onCancelar}
+          disabled={guardando}
+        >
+          Cancelar
+        </button>
+
+        <button
+          className="btn primary"
+          type="submit"
+          disabled={guardando}
+        >
+          {guardando && <span className="mini-spinner" />}
+          {guardando ? "Guardando…" : "Guardar cambios"}
+        </button>
       </div>
     </form>
   );
 }
-
 function Eventos({ eventos, cargando, error, recargar, crear }) {
   return (
     <section className="page">
@@ -1043,7 +1326,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
 
       <section className="progress-card card"><div className="progress-icon">✓</div><div><h2>Progreso global de subtareas</h2><p>{completadas} de {subtareas.length} completadas ({porcentaje}%) • {horasRegistradas} horas totales registradas</p></div><strong>{porcentaje}%</strong><div className="progress-track"><span style={{ width: `${porcentaje}%` }} /></div></section>
 
-      {modal === "create-subtask" && <Modal title="Crear subtarea" subtitle="Agrega una nueva tarea para este evento." close={() => setModal(null)}><CrearSubtareaForm eventoId={id} onCancelar={() => setModal(null)} onCreada={async () => { setModal(null); onNotify("Subtarea creada correctamente"); await cargarSubtareas(); }} /></Modal>}
+      {modal === "create-subtask" && <Modal title="Crear subtarea" subtitle="Agrega una nueva tarea para este evento." close={() => setModal(null)}><CrearSubtareaForme ventoId={id} eventoFecha={evento.fecha} onCancelar={() => setModal(null)} onCreada={async () => { setModal(null); onNotify("Subtarea creada correctamente"); await cargarSubtareas(); }} /></Modal>}
       {modal === "edit-event" && <Modal title="Editar evento" subtitle="Actualiza la información del evento." close={() => setModal(null)} wide><EditarEventoForm evento={evento} onCancelar={() => setModal(null)} onGuardado={eventoActualizado} /></Modal>}
       {modal?.type === "edit-subtask" && <Modal title="Editar subtarea" subtitle="Actualiza la información de la subtarea." close={() => setModal(null)}><EditarSubtareaForm subtarea={modal.item} eventoId={id} onCancelar={() => setModal(null)} onGuardado={subtareaActualizada} /></Modal>}
       {confirmacion?.type === "evento" && <ConfirmModal title="¿Eliminar evento?" message="Esta acción eliminará el evento y sus subtareas. No se puede deshacer." close={() => setConfirmacion(null)} onConfirm={ejecutarEliminacion} loading={eliminando} />}
@@ -1338,7 +1621,7 @@ function ConfiguracionUsuario({ onNotify }) {
                   className="inline-error"
                   role="alert"
                 >
-                  ⊗ {errorCampo}
+                  X {errorCampo}
                 </p>
               )}
             </div>

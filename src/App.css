@@ -3442,47 +3442,12 @@ small {
   cursor: not-allowed;
 }
 
-.google-icon {
-  color: #4285f4;
-
-  font-size: 12px;
-
-  font-weight: 800;
+.corporate-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
-
-.microsoft-icon {
-  color: #f25022;
-
-  font-size: 13px;
-}
-
-
-/* =========================================================
-   SIMULAR ERROR OWASP
-   ========================================================= */
-
-.security-test {
-  display: block;
-
-  margin: 20px auto 0;
-
-  padding: 0;
-
-  border: 0;
-
-  background: transparent;
-
-  color: #0738a5;
-
-  font-size: 8px;
-}
-
-.security-test:disabled {
-  cursor: default;
-
-  opacity: 1;
-}
-
 
 /* =========================================================
    AVISO DE SEGURIDAD
@@ -3513,10 +3478,9 @@ small {
 /* ICONO DE SEGURIDAD */
 
 .security-message-icon {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
   flex-shrink: 0;
+  color: #0738a5;
+  font-size: 16px;
 }
 
 
@@ -3563,4 +3527,13 @@ small {
   color: #b91c1c;
 
   font-size: 10px;
+}
+.error-close {
+  border: 0;
+  background: transparent;
+  color: #991b1b;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1;
 }
