@@ -1,5 +1,5 @@
 // Frontend-only API client.
-const API_URL = (import.meta.env.VITE_API_URL || "https://eventhub-backend-tbst.onrender.com").replace(/\/$/, "");
+const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 async function request(path, options = {}) {
   let response;
