@@ -382,12 +382,13 @@ function Login({ onLogin }) {
                 autoComplete="email"
                 autoFocus
                 aria-invalid={Boolean(errores.email)}
+                className={errores.email ? "input-error" : ""}
               />
             </div>
 
             {errores.email && (
               <p className="inline-error" role="alert">
-                X {errores.email}
+                {errores.email}
               </p>
             )}
           </div>
@@ -417,6 +418,7 @@ function Login({ onLogin }) {
                 }}
                 autoComplete="current-password"
                 aria-invalid={Boolean(errores.password)}
+                className={errores.password ? "input-error" : ""}
               />
 
               <button
@@ -435,7 +437,7 @@ function Login({ onLogin }) {
 
             {errores.password && (
               <p className="inline-error" role="alert">
-                X {errores.password}
+                {errores.password}
               </p>
             )}
           </div>
