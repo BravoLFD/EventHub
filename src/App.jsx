@@ -153,6 +153,7 @@ function Header({ ruta, abrirCrear }) {
     </header>
   );
 }
+{/* Login */ }
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1953,9 +1954,6 @@ function Today({ onNotify }) {
           {urgente && !hecha && (
             <div className="today-urgent-message">
               <strong>⚠ Atención inmediata</strong>
-              <span>
-                Esta gestión todavía requiere atención durante el día de hoy.
-              </span>
             </div>
           )}
 
@@ -2142,116 +2140,115 @@ function Today({ onNotify }) {
 
               <div className="today-overdue-header">
                 <div>
-                  <h2>
-                    Gestiones Vencidas
-                    <span className="today-overdue-count">
-                      {gestionesVencidas.length} requeridas
-                    </span>
-                  </h2>
+                  <h2>Gestiones Vencidas</h2>
+
+                  <p className="today-overdue-risk">
+                    ⚠ Riesgo operativo acumulado
+                  </p>
                 </div>
 
-                <span className="today-overdue-risk">
-                  ⚠ Riesgo operativo acumulado
+                <span className="today-overdue-count">
+                  {gestionesVencidas.length}
                 </span>
               </div>
 
-              <div className="today-overdue-grid">
-                {gestionesVencidas.map((tarea) => {
-                  const fecha = String(
-                    tarea.fechaObjetivo || ""
-                  ).slice(0, 10);
+                <div className="today-overdue-grid">
+                  {gestionesVencidas.map((tarea) => {
+                    const fecha = String(
+                      tarea.fechaObjetivo || ""
+                    ).slice(0, 10);
 
-                  const fechaVencida = new Date(`${fecha}T00:00:00`);
-                  const fechaHoy = new Date(
-                    `${obtenerFechaLocalHoy()}T00:00:00`
-                  );
+                    const fechaVencida = new Date(`${fecha}T00:00:00`);
+                    const fechaHoy = new Date(
+                      `${obtenerFechaLocalHoy()}T00:00:00`
+                    );
 
-                  const diasVencidos = Math.max(
-                    1,
-                    Math.round(
-                      (fechaHoy - fechaVencida) /
-                      (1000 * 60 * 60 * 24)
-                    )
-                  );
+                    const diasVencidos = Math.max(
+                      1,
+                      Math.round(
+                        (fechaHoy - fechaVencida) /
+                        (1000 * 60 * 60 * 24)
+                      )
+                    );
 
-                  return (
-                    <article
-                      className="today-overdue-card"
-                      key={tarea.id}
-                      onClick={() => setSeleccionada(tarea)}
-                    >
-                      <div className="today-overdue-main">
-
-                        {/* PARTE SUPERIOR */}
-                        <div className="today-overdue-top">
-
-                          <span className="today-event-pill">
-                            Evento: {tarea.evento?.titulo || "Evento sin título"}
-                          </span>
-
-                          <span className="today-overdue-badge">
-                            ⚠ Retraso: {diasVencidos}{" "}
-                            {diasVencidos === 1 ? "día" : "días"}
-                          </span>
-
-                          <span className="today-hours">
-                            {obtenerHoras(tarea)}h
-                          </span>
-
-                        </div>
-
-                        {/* TÍTULO */}
-                        <h3>
-                          {obtenerTituloSubtarea(tarea)}
-                        </h3>
-
-                        {/* DESCRIPCIÓN */}
-                        {tarea.evento?.descripcion && (
-                          <p className="today-overdue-description">
-                            {tarea.evento.descripcion}
-                          </p>
-                        )}
-
-                        {/* FECHA EN QUE VENCÍA */}
-                        <div className="today-overdue-meta">
-                          <span>
-                            📅 Vencía: {fecha.split("-").reverse().join("/")}
-                          </span>
-                        </div>
-
-                      </div>
-
-                      {/* ACCIONES */}
-                      <div
-                        className="today-overdue-actions"
-                        onClick={(event) => event.stopPropagation()}
+                    return (
+                      <article
+                        className="today-overdue-card"
+                        key={tarea.id}
+                        onClick={() => setSeleccionada(tarea)}
                       >
+                        <div className="today-overdue-main">
 
-                        <button
-                          type="button"
-                          className="today-overdue-resolve"
-                          disabled={actualizando === tarea.id}
-                          onClick={() => cambiarEstado(tarea, "hecho")}
+                          {/* PARTE SUPERIOR */}
+                          <div className="today-overdue-top">
+
+                            <span className="today-event-pill">
+                              Evento: {tarea.evento?.titulo || "Evento sin título"}
+                            </span>
+
+                            <span className="today-overdue-badge">
+                              ⚠ Retraso: {diasVencidos}{" "}
+                              {diasVencidos === 1 ? "día" : "días"}
+                            </span>
+
+                            <span className="today-hours">
+                              {obtenerHoras(tarea)}h
+                            </span>
+
+                          </div>
+
+                          {/* TÍTULO */}
+                          <h3>
+                            {obtenerTituloSubtarea(tarea)}
+                          </h3>
+
+                          {/* DESCRIPCIÓN */}
+                          {tarea.evento?.descripcion && (
+                            <p className="today-overdue-description">
+                              {tarea.evento.descripcion}
+                            </p>
+                          )}
+
+                          {/* FECHA EN QUE VENCÍA */}
+                          <div className="today-overdue-meta">
+                            <span>
+                              📅 Vencía: {fecha.split("-").reverse().join("/")}
+                            </span>
+                          </div>
+
+                        </div>
+
+                        {/* ACCIONES */}
+                        <div
+                          className="today-overdue-actions"
+                          onClick={(event) => event.stopPropagation()}
                         >
-                          {actualizando === tarea.id
-                            ? "Guardando..."
-                            : "✓ Resolver ahora"}
-                        </button>
 
-                        <button
-                          type="button"
-                          className="today-overdue-reprogram"
-                          disabled={actualizando === tarea.id}
-                          onClick={() => abrirModalPosponer(tarea)}
-                        >
-                          Reprogramar
-                        </button>
+                          <button
+                            type="button"
+                            className="today-overdue-resolve"
+                            disabled={actualizando === tarea.id}
+                            onClick={() => cambiarEstado(tarea, "hecho")}
+                          >
+                            {actualizando === tarea.id
+                              ? "Guardando..."
+                              : "✓ Resolver ahora"}
+                          </button>
 
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+                          <button
+                            type="button"
+                            className="today-overdue-reprogram"
+                            disabled={actualizando === tarea.id}
+                            onClick={() => abrirModalPosponer(tarea)}
+                          >
+                            Reprogramar
+                          </button>
+
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
             </section>
           )}
 
