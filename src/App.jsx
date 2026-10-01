@@ -2180,7 +2180,7 @@ function Today({ onNotify }) {
 
                   return (
                     <article
-                      className="today-overdue-card"
+                      className="today-task-card today-overdue-card"
                       key={tarea.id}
                       onClick={() => setSeleccionada(tarea)}
                     >
@@ -2221,9 +2221,10 @@ function Today({ onNotify }) {
                         <button
                           type="button"
                           className="today-overdue-reprogram"
+                          disabled={actualizando === tarea.id}
                           onClick={(event) => {
                             event.stopPropagation();
-                            setSeleccionada(tarea);
+                            abrirModalPosponer(tarea);
                           }}
                         >
                           Reprogramar
