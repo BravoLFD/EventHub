@@ -2116,8 +2116,162 @@ small {
 
   font-size: 12px;
 }
+/* =========================================================
+   FILTROS HOY
+   ========================================================= */
 
+.today-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 
+  margin-bottom: 20px;
+  padding: 8px;
+
+  background: #fff;
+
+  border: 1px solid #d5dbe5;
+  border-radius: 9px;
+
+  box-shadow: var(--eh-shadow);
+}
+
+.today-filter-search {
+  display: flex;
+  align-items: center;
+
+  flex: 1;
+  min-width: 280px;
+}
+
+.today-filter-search span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 38px;
+
+  color: #60708a;
+  font-size: 20px;
+}
+
+.today-filter-search input {
+  width: 100%;
+
+  border: 0;
+  outline: none;
+
+  background: transparent;
+
+  color: #24324a;
+  font-size: 14px;
+}
+
+.today-filter-search input::placeholder {
+  color: #60708a;
+}
+
+.today-filter-select {
+  display: flex;
+  align-items: center;
+
+  min-width: 205px;
+
+  padding: 0 12px;
+
+  background: #f7f8fa;
+
+  border: 1px solid #e0e4eb;
+  border-radius: 7px;
+}
+
+.today-filter-select span {
+  margin-right: 8px;
+
+  color: #53627a;
+  font-size: 15px;
+}
+
+.today-filter-select select {
+  width: 100%;
+
+  padding: 10px 24px 10px 0;
+
+  border: 0;
+  outline: none;
+
+  background: transparent;
+
+  color: #24324a;
+
+  font-size: 14px;
+
+  cursor: pointer;
+}
+
+.today-filter-reset {
+  width: 42px;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #f7f8fa;
+
+  color: #315bd5;
+
+  font-size: 20px;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.today-filter-reset:hover {
+  background: #eef3ff;
+  transform: rotate(-45deg);
+}
+@media (max-width: 900px) {
+  .today-filters {
+    flex-wrap: wrap;
+  }
+
+  .today-filter-search {
+    flex-basis: 100%;
+  }
+
+  .today-filter-select {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 500px) {
+  .today-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .today-filter-search {
+    min-width: 0;
+  }
+
+  .today-filter-select {
+    width: 100%;
+  }
+
+  .today-filter-reset {
+    width: 100%;
+  }
+}
 /* LAYOUT HOY */
 
 .today-layout {

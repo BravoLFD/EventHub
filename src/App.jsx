@@ -1697,6 +1697,9 @@ function Today({ onNotify }) {
   const [actualizando, setActualizando] = useState(null);
   const [seleccionada, setSeleccionada] = useState(null);
   const [capacidadDiaria, setCapacidadDiaria] = useState(6);
+  const [filtroBusqueda, setFiltroBusqueda] = useState("");
+  const [filtroEvento, setFiltroEvento] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("");
 
   const [tareaPosponer, setTareaPosponer] = useState(null);
   const [nuevaFecha, setNuevaFecha] = useState("");
@@ -1888,6 +1891,61 @@ function Today({ onNotify }) {
       setActualizando(null);
     }
   };
+  const eventosFiltro = Array.from(
+    new Map(
+      [...tareas, ...gestionesVencidas, ...proximasGestiones]
+        .filter((tarea) => tarea.evento?.id)
+        .map((tarea) => [
+          String(tarea.evento.id),
+          tarea.evento,
+        ])
+    ).values()
+  );
+  const aplicarFiltros = (lista) => {
+    const busqueda = filtroBusqueda.trim().toLowerCase();
+
+    return lista.filter((tarea) => {
+      const estado = normalizarEstado(tarea.estado);
+      const eventoId = String(tarea.evento?.id || "");
+
+      const coincideEvento =
+        !filtroEvento || eventoId === String(filtroEvento);
+
+      const coincideEstado =
+        !filtroEstado || estado === filtroEstado;
+
+      const coincideBusqueda =
+        !busqueda ||
+        obtenerTituloSubtarea(tarea).toLowerCase().includes(busqueda) ||
+        (tarea.evento?.titulo || "").toLowerCase().includes(busqueda) ||
+        String(tarea.responsable || "").toLowerCase().includes(busqueda);
+
+      return (
+        coincideEvento &&
+        coincideEstado &&
+        coincideBusqueda
+      );
+    });
+  };
+  const tareasFiltradas = aplicarFiltros(tareas);
+  const gestionesVencidasFiltradas = aplicarFiltros(gestionesVencidas);
+  const proximasGestionesFiltradas = aplicarFiltros(proximasGestiones);
+  const pendientesFiltradas = tareasFiltradas.filter(
+    (tarea) => normalizarEstado(tarea.estado) === "pendiente"
+  );
+
+  const pospuestasFiltradas = tareasFiltradas.filter(
+    (tarea) => normalizarEstado(tarea.estado) === "pospuesto"
+  );
+
+  const completadasFiltradas = tareasFiltradas.filter(
+    (tarea) => normalizarEstado(tarea.estado) === "hecho"
+  );
+
+  const urgentesFiltradas = [
+    ...pospuestasFiltradas,
+    ...pendientesFiltradas,
+  ];
 
   const pendientes = tareas.filter(
     (tarea) => normalizarEstado(tarea.estado) === "pendiente"
@@ -2065,7 +2123,7 @@ function Today({ onNotify }) {
           <span className="today-summary-icon">!</span>
           <div>
             <small>PENDIENTES</small>
-            <strong>{urgentes.length}</strong>
+            <strong>{urgentesFiltradas.length}</strong>
             <span>Requieren atención</span>
           </div>
         </article>
@@ -2074,7 +2132,7 @@ function Today({ onNotify }) {
           <span className="today-summary-icon">✓</span>
           <div>
             <small>REALIZADAS</small>
-            <strong>{completadas.length}</strong>
+            <strong>{completadasFiltradas.length}</strong>
             <span>Completadas hoy</span>
           </div>
         </article>
@@ -2087,6 +2145,67 @@ function Today({ onNotify }) {
             <span>Horas de trabajo</span>
           </div>
         </article>
+      </div>
+      <div className="today-filters">
+
+        <div className="today-filter-search">
+          <span>⌕</span>
+
+          <input
+            type="search"
+            placeholder="Buscar por evento, tarea o responsable..."
+            value={filtroBusqueda}
+            onChange={(event) => setFiltroBusqueda(event.target.value)}
+          />
+        </div>
+
+        <div className="today-filter-select">
+          <span>▣</span>
+
+          <select
+            value={filtroEvento}
+            onChange={(event) => setFiltroEvento(event.target.value)}
+          >
+            <option value="">
+              Todos los eventos ({eventosFiltro.length})
+            </option>
+
+            {eventosFiltro.map((evento) => (
+              <option key={evento.id} value={evento.id}>
+                {evento.titulo}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="today-filter-select">
+          <span>☷</span>
+
+          <select
+            value={filtroEstado}
+            onChange={(event) => setFiltroEstado(event.target.value)}
+          >
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="pospuesto">Pospuesto</option>
+            <option value="hecho">Hecho</option>
+          </select>
+        </div>
+
+        <button
+          type="button"
+          className="today-filter-reset"
+          onClick={() => {
+            setFiltroBusqueda("");
+            setFiltroEvento("");
+            setFiltroEstado("");
+          }}
+          aria-label="Limpiar filtros"
+          title="Limpiar filtros"
+        >
+          ↻
+        </button>
+
       </div>
 
       <div className="today-layout">
@@ -2118,24 +2237,38 @@ function Today({ onNotify }) {
             </section>
           )}
 
-          {!cargando && !error && tareas.length === 0 && gestionesVencidas.length === 0 && (
+          {!cargando && !error && tareasFiltradas.length === 0 && gestionesVencidasFiltradas.length === 0 && (
             <section className="card today-no-tasks">
-              <div className="empty-icon">✓</div>
-              <h2>No hay gestiones para hoy</h2>
+              <div className="empty-icon">⌕</div>
+
+              <h2>
+                {filtroBusqueda || filtroEvento || filtroEstado
+                  ? "No hay resultados"
+                  : "No hay gestiones para hoy"}
+              </h2>
+
               <p>
-                No encontramos subtareas cuya fecha objetivo o evento
-                corresponda a hoy.
+                {filtroBusqueda || filtroEvento || filtroEstado
+                  ? "No encontramos gestiones que coincidan con los filtros seleccionados."
+                  : "No encontramos subtareas cuya fecha objetivo o evento corresponda a hoy."}
               </p>
-              <button
-                className="btn primary"
-                type="button"
-                onClick={() => navegar("/eventos")}
-              >
-                Ver eventos
-              </button>
+
+              {(filtroBusqueda || filtroEvento || filtroEstado) && (
+                <button
+                  className="btn secondary"
+                  type="button"
+                  onClick={() => {
+                    setFiltroBusqueda("");
+                    setFiltroEvento("");
+                    setFiltroEstado("");
+                  }}
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </section>
           )}
-          {!cargando && !error && gestionesVencidas.length > 0 && (
+          {!cargando && !error && gestionesVencidasFiltradas.length > 0 && (
             <section className="today-overdue-section">
 
               <div className="today-overdue-header">
@@ -2148,111 +2281,111 @@ function Today({ onNotify }) {
                 </div>
 
                 <span className="today-overdue-count">
-                  {gestionesVencidas.length}
+                  {gestionesVencidasFiltradas.length}
                 </span>
               </div>
 
-                <div className="today-overdue-grid">
-                  {gestionesVencidas.map((tarea) => {
-                    const fecha = String(
-                      tarea.fechaObjetivo || ""
-                    ).slice(0, 10);
+              <div className="today-overdue-grid">
+                {gestionesVencidasFiltradas.map((tarea) => {
+                  const fecha = String(
+                    tarea.fechaObjetivo || ""
+                  ).slice(0, 10);
 
-                    const fechaVencida = new Date(`${fecha}T00:00:00`);
-                    const fechaHoy = new Date(
-                      `${obtenerFechaLocalHoy()}T00:00:00`
-                    );
+                  const fechaVencida = new Date(`${fecha}T00:00:00`);
+                  const fechaHoy = new Date(
+                    `${obtenerFechaLocalHoy()}T00:00:00`
+                  );
 
-                    const diasVencidos = Math.max(
-                      1,
-                      Math.round(
-                        (fechaHoy - fechaVencida) /
-                        (1000 * 60 * 60 * 24)
-                      )
-                    );
+                  const diasVencidos = Math.max(
+                    1,
+                    Math.round(
+                      (fechaHoy - fechaVencida) /
+                      (1000 * 60 * 60 * 24)
+                    )
+                  );
 
-                    return (
-                      <article
-                        className="today-overdue-card"
-                        key={tarea.id}
-                        onClick={() => setSeleccionada(tarea)}
+                  return (
+                    <article
+                      className="today-overdue-card"
+                      key={tarea.id}
+                      onClick={() => setSeleccionada(tarea)}
+                    >
+                      <div className="today-overdue-main">
+
+                        {/* PARTE SUPERIOR */}
+                        <div className="today-overdue-top">
+
+                          <span className="today-event-pill">
+                            Evento: {tarea.evento?.titulo || "Evento sin título"}
+                          </span>
+
+                          <span className="today-overdue-badge">
+                            ⚠ Retraso: {diasVencidos}{" "}
+                            {diasVencidos === 1 ? "día" : "días"}
+                          </span>
+
+                          <span className="today-hours">
+                            {obtenerHoras(tarea)}h
+                          </span>
+
+                        </div>
+
+                        {/* TÍTULO */}
+                        <h3>
+                          {obtenerTituloSubtarea(tarea)}
+                        </h3>
+
+                        {/* DESCRIPCIÓN */}
+                        {tarea.evento?.descripcion && (
+                          <p className="today-overdue-description">
+                            {tarea.evento.descripcion}
+                          </p>
+                        )}
+
+                        {/* FECHA EN QUE VENCÍA */}
+                        <div className="today-overdue-meta">
+                          <span>
+                            📅 Vencía: {fecha.split("-").reverse().join("/")}
+                          </span>
+                        </div>
+
+                      </div>
+
+                      {/* ACCIONES */}
+                      <div
+                        className="today-overdue-actions"
+                        onClick={(event) => event.stopPropagation()}
                       >
-                        <div className="today-overdue-main">
 
-                          {/* PARTE SUPERIOR */}
-                          <div className="today-overdue-top">
-
-                            <span className="today-event-pill">
-                              Evento: {tarea.evento?.titulo || "Evento sin título"}
-                            </span>
-
-                            <span className="today-overdue-badge">
-                              ⚠ Retraso: {diasVencidos}{" "}
-                              {diasVencidos === 1 ? "día" : "días"}
-                            </span>
-
-                            <span className="today-hours">
-                              {obtenerHoras(tarea)}h
-                            </span>
-
-                          </div>
-
-                          {/* TÍTULO */}
-                          <h3>
-                            {obtenerTituloSubtarea(tarea)}
-                          </h3>
-
-                          {/* DESCRIPCIÓN */}
-                          {tarea.evento?.descripcion && (
-                            <p className="today-overdue-description">
-                              {tarea.evento.descripcion}
-                            </p>
-                          )}
-
-                          {/* FECHA EN QUE VENCÍA */}
-                          <div className="today-overdue-meta">
-                            <span>
-                              📅 Vencía: {fecha.split("-").reverse().join("/")}
-                            </span>
-                          </div>
-
-                        </div>
-
-                        {/* ACCIONES */}
-                        <div
-                          className="today-overdue-actions"
-                          onClick={(event) => event.stopPropagation()}
+                        <button
+                          type="button"
+                          className="today-overdue-resolve"
+                          disabled={actualizando === tarea.id}
+                          onClick={() => cambiarEstado(tarea, "hecho")}
                         >
+                          {actualizando === tarea.id
+                            ? "Guardando..."
+                            : "✓ Resolver ahora"}
+                        </button>
 
-                          <button
-                            type="button"
-                            className="today-overdue-resolve"
-                            disabled={actualizando === tarea.id}
-                            onClick={() => cambiarEstado(tarea, "hecho")}
-                          >
-                            {actualizando === tarea.id
-                              ? "Guardando..."
-                              : "✓ Resolver ahora"}
-                          </button>
+                        <button
+                          type="button"
+                          className="today-overdue-reprogram"
+                          disabled={actualizando === tarea.id}
+                          onClick={() => abrirModalPosponer(tarea)}
+                        >
+                          Reprogramar
+                        </button>
 
-                          <button
-                            type="button"
-                            className="today-overdue-reprogram"
-                            disabled={actualizando === tarea.id}
-                            onClick={() => abrirModalPosponer(tarea)}
-                          >
-                            Reprogramar
-                          </button>
-
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             </section>
           )}
 
-          {!cargando && !error && tareas.length > 0 && (
+          {!cargando && !error && tareasFiltradas.length > 0 && (
             <>
               <section className="today-section">
                 <div className="today-section-title">
@@ -2262,7 +2395,7 @@ function Today({ onNotify }) {
                   </div>
 
                   <span className="today-count urgent-count">
-                    {urgentes.length}
+                    {urgentesFiltradas.length}
                   </span>
                 </div>
 
@@ -2272,7 +2405,7 @@ function Today({ onNotify }) {
                     <p>No tienes gestiones urgentes.</p>
                   </div>
                 ) : (
-                  urgentes.map((tarea) => renderTarea(tarea, true))
+                  urgentesFiltradas.map((tarea) => renderTarea(tarea, true))
                 )}
               </section>
 
@@ -2283,7 +2416,7 @@ function Today({ onNotify }) {
                   </div>
 
                   <span className="today-count done-count">
-                    {completadas.length}
+                    {completadasFiltradas.length}
                   </span>
                 </div>
 
@@ -2293,7 +2426,7 @@ function Today({ onNotify }) {
                     <p>Aún no has completado gestiones hoy.</p>
                   </div>
                 ) : (
-                  completadas.map((tarea) => renderTarea(tarea))
+                  completadasFiltradas.map((tarea) => renderTarea(tarea))
                 )}
               </section>
             </>
@@ -2317,17 +2450,17 @@ function Today({ onNotify }) {
               </p>
 
               <div className="today-panel-info">
-                <span>Horas estimadas</span>
+                <span>Horas estimadas: </span>
                 <strong>{obtenerHoras(seleccionada)}h</strong>
               </div>
 
               <div className="today-panel-info">
-                <span>Estado</span>
+                <span>Estado: </span>
                 <strong>{etiquetaEstado(seleccionada.estado)}</strong>
               </div>
 
               <div className="today-panel-info">
-                <span>Fecha</span>
+                <span>Fecha: </span>
                 <strong>
                   {seleccionada.dia_objetivo
                     ? formatearFecha(seleccionada.dia_objetivo)
