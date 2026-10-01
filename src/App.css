@@ -2769,7 +2769,16 @@ small {
 
 .today-overdue-section {
   width: 100%;
-  margin: 24px 0;
+  margin: 24px 0 18px;
+  padding: 18px;
+
+  background: #fff;
+
+  border: 1px solid #d5dbe5;
+  border-radius: 11px;
+
+  box-shadow: var(--eh-shadow);
+
   box-sizing: border-box;
 }
 
@@ -2785,7 +2794,7 @@ small {
   margin: 0 0 14px;
 }
 
-.today-overdue-header > div {
+.today-overdue-header>div {
   min-width: 0;
 }
 
@@ -2894,7 +2903,10 @@ small {
   margin-bottom: 10px;
 }
 
-.today-overdue-top .today-event-pill,
+.today-overdue-top .today-event-pill {
+  flex-shrink: 0;
+}
+
 .today-overdue-top .today-overdue-badge {
   flex-shrink: 0;
 }
@@ -2907,21 +2919,6 @@ small {
   font-size: 13px;
   font-weight: 700;
   line-height: 1;
-}
-
-.today-overdue-badge {
-  display: inline-flex;
-  align-items: center;
-
-  padding: 4px 7px;
-
-  border-radius: 5px;
-
-  background: #fee2e2;
-  color: #b91c1c;
-
-  font-size: 10px;
-  font-weight: 700;
 }
 
 .today-overdue-id {
@@ -2980,12 +2977,8 @@ small {
   width: 100%;
   min-width: 0;
 
-  gap: 10px;
-
   margin: 0;
   padding: 0;
-
-  background: transparent;
 
   color: #667085;
 

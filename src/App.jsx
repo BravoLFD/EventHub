@@ -2189,18 +2189,15 @@ function Today({ onNotify }) {
                         {/* PARTE SUPERIOR */}
                         <div className="today-overdue-top">
 
-                          {/* RETRASO */}
+                          <span className="today-event-pill">
+                            Evento: {tarea.evento?.titulo || "Evento sin título"}
+                          </span>
+
                           <span className="today-overdue-badge">
                             ⚠ Retraso: {diasVencidos}{" "}
                             {diasVencidos === 1 ? "día" : "días"}
                           </span>
 
-                          {/* EVENTO */}
-                          <span className="today-event-pill">
-                            Evento: {tarea.evento?.titulo || "Evento sin título"}
-                          </span>
-
-                          {/* HORAS */}
                           <span className="today-hours">
                             {obtenerHoras(tarea)}h
                           </span>
@@ -2221,15 +2218,8 @@ function Today({ onNotify }) {
 
                         {/* FECHA EN QUE VENCÍA */}
                         <div className="today-overdue-meta">
-                          <span className="today-overdue-date">
-                            📅 Vencía:{" "}
-                            {new Intl.DateTimeFormat("es-CO", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric",
-                            }).format(
-                              new Date(`${fecha}T00:00:00`)
-                            )}
+                          <span>
+                            📅 Vencía: {fecha.split("-").reverse().join("/")}
                           </span>
                         </div>
 
