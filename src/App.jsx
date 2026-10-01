@@ -2809,7 +2809,9 @@ function Today({ onNotify }) {
     </section>
   );
 }
-
+function OnboardingRegistro() {
+  return <div>Onboarding de registro</div>;
+}
 function RegistroUsuario() {
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
