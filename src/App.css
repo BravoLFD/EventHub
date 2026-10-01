@@ -2246,10 +2246,9 @@ small {
 
 .today-task-top {
   display: flex;
-
-  align-items: center;
-
+  align-items: flex-start;
   gap: 8px;
+  width: 100%;
 }
 
 .today-event-pill,
@@ -2293,12 +2292,12 @@ small {
 
 .today-hours {
   margin-left: auto;
-
+  margin-right: 4px;
   color: #4e5b72;
-
   font-size: 12px;
-
   font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .today-task-card h3 {

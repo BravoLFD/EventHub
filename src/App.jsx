@@ -2148,10 +2148,6 @@ function Today({ onNotify }) {
                       {gestionesVencidas.length} requeridas
                     </span>
                   </h2>
-
-                  <p>
-                    Estas gestiones requieren atención inmediata.
-                  </p>
                 </div>
 
                 <span className="today-overdue-risk">
@@ -2265,7 +2261,6 @@ function Today({ onNotify }) {
                 <div className="today-section-title">
                   <div>
                     <h2>Gestiones urgentes</h2>
-                    <span>Atención inmediata</span>
                   </div>
 
                   <span className="today-count urgent-count">
@@ -2287,7 +2282,6 @@ function Today({ onNotify }) {
                 <div className="today-section-title">
                   <div>
                     <h2>Gestiones realizadas hoy</h2>
-                    <span>Historial del día</span>
                   </div>
 
                   <span className="today-count done-count">
