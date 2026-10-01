@@ -2297,6 +2297,7 @@ small {
   color: #4e5b72;
 
   font-size: 12px;
+
   font-weight: 700;
 }
 
@@ -2772,19 +2773,20 @@ small {
   box-sizing: border-box;
 }
 
-.today-overdue-main {
-  width: 100%;
-  min-width: 0;
-}
-
-/* ENCABEZADO */
+/* =========================================================
+   ENCABEZADO
+   ========================================================= */
 
 .today-overdue-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
   margin: 0 0 14px;
+}
+
+.today-overdue-header > div {
+  min-width: 0;
 }
 
 .today-overdue-header h2 {
@@ -2815,6 +2817,8 @@ small {
 }
 
 .today-overdue-risk {
+  flex-shrink: 0;
+  margin-top: 2px;
   color: #dc2626;
   font-size: 12px;
   font-weight: 500;
@@ -2844,13 +2848,13 @@ small {
   min-width: 0;
   min-height: 142px;
 
-  padding: 15px 18px 14px;
+  padding: 18px 18px 16px;
   margin: 0;
 
   background: #ffffff;
 
   border: 1px solid #dfe4ed;
-  border-left: 5px solid #dc2626;
+  border-left: 5px solid #ef4444;
   border-radius: 10px;
 
   box-shadow: 0 2px 7px rgba(15, 23, 42, 0.04);
@@ -2870,6 +2874,11 @@ small {
   transform: translateY(-1px);
 }
 
+.today-overdue-main {
+  width: 100%;
+  min-width: 0;
+}
+
 
 /* =========================================================
    PARTE SUPERIOR
@@ -2878,9 +2887,26 @@ small {
 .today-overdue-top {
   display: flex;
   align-items: center;
-  gap: 8px;
   width: 100%;
+  min-width: 0;
+
+  gap: 8px;
   margin-bottom: 10px;
+}
+
+.today-overdue-top .today-event-pill,
+.today-overdue-top .today-overdue-badge {
+  flex-shrink: 0;
+}
+
+.today-overdue-top .today-hours {
+  margin-left: auto;
+  flex-shrink: 0;
+
+  color: #4e5b72;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .today-overdue-badge {
@@ -2908,7 +2934,9 @@ small {
    ========================================================= */
 
 .today-overdue-card h3 {
-  margin: 10px 0 6px;
+  max-width: calc(100% - 330px);
+
+  margin: 10px 0 10px;
 
   color: #172033;
 
@@ -2919,40 +2947,50 @@ small {
 
 
 /* =========================================================
-   DESCRIPCIÓN
+   DESCRIPCIÓN / AVISO
    ========================================================= */
 
 .today-overdue-description {
-  margin: 0 0 10px;
+  max-width: calc(100% - 330px);
 
-  color: #667085;
+  margin: 0 0 10px;
+  padding: 9px 11px;
+
+  border: 1px solid #f3c6c6;
+  border-radius: 6px;
+
+  background: #fff1f0;
+
+  color: #b54747;
 
   font-size: 12px;
   line-height: 1.45;
+  box-sizing: border-box;
 }
 
 
 /* =========================================================
-   INFORMACIÓN
+   INFORMACIÓN / FECHA DE VENCIMIENTO
    ========================================================= */
 
 .today-overdue-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+
+  width: 100%;
+  min-width: 0;
 
   gap: 10px;
 
   margin: 0;
-  padding: 7px 9px;
+  padding: 0;
 
-  border-radius: 4px;
+  background: transparent;
 
-  background: #f1f3f5;
+  color: #667085;
 
-  color: #475467;
-
-  font-size: 10px;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .today-overdue-meta span {
@@ -2973,26 +3011,28 @@ small {
 .today-overdue-actions {
   position: absolute;
   right: 18px;
-  bottom: 14px;
+  top: 75px;
 
   display: flex;
   align-items: center;
   justify-content: flex-end;
 
-  gap: 8px;
+  gap: 10px;
 
-  padding-top: 0;
-  border-top: 0;
+  padding: 0;
+  border: 0;
 }
 
 .today-overdue-reprogram {
+  order: 2;
+
   min-height: 36px;
-  padding: 0 11px;
+  padding: 0 14px;
 
   border: 1px solid #cbd3e1;
   border-radius: 7px;
 
-  background: #fff;
+  background: #ffffff;
 
   color: #3c4960;
 
@@ -3002,41 +3042,50 @@ small {
   cursor: pointer;
 }
 
-.today-overdue-reprogram:hover {
+.today-overdue-reprogram:hover:not(:disabled) {
   color: #0738a5;
+  border-color: #aebbd0;
+  background: #f8faff;
 }
 
 .today-overdue-resolve {
-  min-width: 125px;
-  height: 30px;
+  order: 1;
 
-  padding: 0 12px;
+  min-width: 145px;
+  height: 36px;
+
+  padding: 0 13px;
 
   border: 0;
-  border-radius: 4px;
+  border-radius: 7px;
 
-  background: #0738a5;
+  background: #3560d0;
   color: #ffffff;
 
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 
   cursor: pointer;
 
+  box-shadow: 0 2px 5px rgba(53, 96, 208, 0.18);
+
   transition:
     background 0.2s ease,
-    transform 0.15s ease;
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
 }
 
 .today-overdue-resolve:hover:not(:disabled) {
-  background: #052d8a;
+  background: #294fb5;
+  box-shadow: 0 4px 9px rgba(53, 96, 208, 0.22);
 }
 
 .today-overdue-resolve:active:not(:disabled) {
   transform: translateY(1px);
 }
 
-.today-overdue-resolve:disabled {
+.today-overdue-resolve:disabled,
+.today-overdue-reprogram:disabled {
   opacity: 0.65;
   cursor: wait;
 }
@@ -3052,15 +3101,8 @@ small {
   }
 
   .today-overdue-card {
-    padding-right: 18px;
-  }
-
-  .today-overdue-actions {
-    position: static;
-    justify-content: flex-end;
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid #eef0f3;
+    min-height: 0;
+    padding: 16px 18px;
   }
 
   .today-overdue-header {
@@ -3071,11 +3113,25 @@ small {
   .today-overdue-risk {
     white-space: normal;
   }
+
+  .today-overdue-card h3,
+  .today-overdue-description {
+    max-width: none;
+  }
+
+  .today-overdue-actions {
+    position: static;
+    justify-content: flex-end;
+
+    margin-top: 12px;
+    padding-top: 12px;
+
+    border-top: 1px solid #eef0f3;
+  }
 }
 
 @media (max-width: 500px) {
   .today-overdue-card {
-    min-height: 0;
     padding: 14px;
   }
 
@@ -3083,12 +3139,21 @@ small {
     font-size: 16px;
   }
 
+  .today-overdue-top {
+    flex-wrap: wrap;
+  }
+
+  .today-overdue-top .today-hours {
+    margin-left: auto;
+  }
+
   .today-overdue-actions {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .today-overdue-resolve {
+  .today-overdue-resolve,
+  .today-overdue-reprogram {
     width: 100%;
   }
 }
