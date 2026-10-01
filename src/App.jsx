@@ -1,7 +1,7 @@
 import "./App.css";
 import logo_EventHub from "./assets/Logo.png";
 import logo_Jaguar from "./assets/Logo_Jaguar.png";
-import { FaLock, FaEye, FaEyeSlash,  FaDoorOpen,FaSyncAlt,} from "react-icons/fa";
+import { FaLock, FaEye, FaEyeSlash, FaDoorOpen, FaSyncAlt, } from "react-icons/fa";
 import Google from "./assets/Google.png";
 import Microsoft from "./assets/Microsoft.png";
 import { useEffect, useRef, useState } from "react";
@@ -14,6 +14,7 @@ import {
   eliminarEvento,
   eliminarSubtarea,
   iniciarSesion,
+  registrarUsuario,
   obtenerConfiguracionUsuario,
   obtenerEvento,
   obtenerEventos,
@@ -26,7 +27,7 @@ import {
   guardarSesion,
 } from "./services/auth.js";
 
-const rutas = ["/login", "/eventos", "/hoy", "/crear-evento", "/configuracion"];
+const rutas = ["/login", "/registro", "/registro/onboarding", "/eventos", "/hoy", "/crear-evento", "/configuracion"];
 
 function rutaActual() {
   const path = window.location.pathname;
@@ -514,6 +515,17 @@ function Login({ onLogin }) {
             Microsoft
           </button>
 
+        </div>
+        {/* REGISTRO */}
+        <div className="login-register">
+          <span>¿Eres un usuario nuevo?</span>
+
+          <button
+            type="button"
+            onClick={() => navegar("/registro")}
+          >
+            Regístrate
+          </button>
         </div>
 
         {/* AVISO DE SEGURIDAD */}
@@ -2798,7 +2810,459 @@ function Today({ onNotify }) {
   );
 }
 
+function RegistroUsuario() {
+  const [nombre, setNombre] = useState("");
+  const [apellido, setApellido] = useState("");
+  const [email, setEmail] = useState("");
+  const [codigoPais, setCodigoPais] = useState("+34");
+  const [telefono, setTelefono] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmarPassword, setConfirmarPassword] = useState("");
 
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+  const [mostrarConfirmarPassword, setMostrarConfirmarPassword] =
+    useState(false);
+
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
+
+  const [errores, setErrores] = useState({});
+  const [errorServidor, setErrorServidor] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  const validar = () => {
+    const next = {};
+
+    if (!nombre.trim()) {
+      next.nombre = "El nombre es requerido.";
+    } else if (nombre.trim().length < 2) {
+      next.nombre = "El nombre debe tener al menos 2 caracteres.";
+    }
+
+    if (!apellido.trim()) {
+      next.apellido = "El apellido es requerido.";
+    } else if (apellido.trim().length < 2) {
+      next.apellido = "El apellido debe tener al menos 2 caracteres.";
+    }
+
+    if (!email.trim()) {
+      next.email = "El correo electrónico es requerido.";
+    } else if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+    ) {
+      next.email = "Ingresa un correo electrónico válido.";
+    }
+
+    const telefonoLimpio = telefono.replace(/\D/g, "");
+
+    if (!telefonoLimpio) {
+      next.telefono = "El teléfono es requerido.";
+    } else if (telefonoLimpio.length < 7) {
+      next.telefono = "Ingresa un teléfono válido.";
+    }
+
+    if (!password) {
+      next.password = "La contraseña es requerida.";
+    } else if (password.length < 8) {
+      next.password = "La contraseña debe tener mínimo 8 caracteres.";
+    }
+
+    if (!confirmarPassword) {
+      next.confirmarPassword = "Confirma tu contraseña.";
+    } else if (password !== confirmarPassword) {
+      next.confirmarPassword = "Las contraseñas no coinciden.";
+    }
+
+    if (!aceptaTerminos) {
+      next.terminos =
+        "Debes aceptar los términos y la política de privacidad.";
+    }
+
+    return next;
+  };
+
+  const limpiarError = (campo) => {
+    setErrores((prev) => ({
+      ...prev,
+      [campo]: "",
+    }));
+
+    setErrorServidor("");
+  };
+
+  const enviar = async (event) => {
+    event.preventDefault();
+
+    const next = validar();
+
+    setErrores(next);
+    setErrorServidor("");
+
+    if (Object.keys(next).length > 0) {
+      return;
+    }
+
+    setEnviando(true);
+
+    try {
+      const telefonoCompleto = `${codigoPais} ${telefono
+        .replace(/\s+/g, " ")
+        .trim()}`;
+
+      await registrarUsuario({
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        email: email.trim(),
+        telefono: telefonoCompleto,
+        password,
+      });
+
+      navegar("/registro/onboarding");
+    } catch (error) {
+      setErrorServidor(
+        error.message || "No fue posible crear la cuenta."
+      );
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <main className="register-page">
+      <section className="register-card">
+
+        {/* BRAND */}
+        <div className="register-brand">
+          <div className="register-brand-badge">
+            <img
+              src={logo_EventHub}
+              alt="EventHub"
+              className="register-logo"
+            />
+
+            <span className="register-pro-badge">
+              PRO
+            </span>
+          </div>
+
+          <h1>Crea tu cuenta de organizador</h1>
+
+          <p>
+            Centraliza la planificación, cronogramas y logística técnica
+            en una sola plataforma operativa.
+          </p>
+        </div>
+
+        {/* ERROR SERVIDOR */}
+        {errorServidor && (
+          <div className="register-error" role="alert">
+            <strong>No fue posible crear la cuenta.</strong>
+            <span>{errorServidor}</span>
+          </div>
+        )}
+
+        <form onSubmit={enviar} noValidate>
+
+          {/* NOMBRE / APELLIDO */}
+          <div className="register-fields-row">
+
+            <div className="register-field">
+              <label htmlFor="register-nombre">
+                Nombre <span>*</span>
+              </label>
+
+              <input
+                id="register-nombre"
+                type="text"
+                placeholder="Ej. Valentina"
+                value={nombre}
+                onChange={(event) => {
+                  setNombre(event.target.value);
+                  limpiarError("nombre");
+                }}
+                autoComplete="given-name"
+                aria-invalid={Boolean(errores.nombre)}
+              />
+
+              {errores.nombre && (
+                <small className="register-inline-error">
+                  {errores.nombre}
+                </small>
+              )}
+            </div>
+
+            <div className="register-field">
+              <label htmlFor="register-apellido">
+                Apellido <span>*</span>
+              </label>
+
+              <input
+                id="register-apellido"
+                type="text"
+                placeholder="Ej. Morales"
+                value={apellido}
+                onChange={(event) => {
+                  setApellido(event.target.value);
+                  limpiarError("apellido");
+                }}
+                autoComplete="family-name"
+                aria-invalid={Boolean(errores.apellido)}
+              />
+
+              {errores.apellido && (
+                <small className="register-inline-error">
+                  {errores.apellido}
+                </small>
+              )}
+            </div>
+
+          </div>
+
+          {/* EMAIL */}
+          <div className="register-field">
+            <label htmlFor="register-email">
+              Correo electrónico corporativo <span>*</span>
+            </label>
+
+            <div className="register-input-with-icon">
+              <span>✉</span>
+
+              <input
+                id="register-email"
+                type="email"
+                placeholder="coordinador@eventhub.com"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  limpiarError("email");
+                }}
+                autoComplete="email"
+                aria-invalid={Boolean(errores.email)}
+              />
+            </div>
+
+            {errores.email && (
+              <small className="register-inline-error">
+                {errores.email}
+              </small>
+            )}
+          </div>
+
+          {/* TELEFONO */}
+          <div className="register-field">
+            <label htmlFor="register-telefono">
+              Teléfono de contacto de guardia <span>*</span>
+            </label>
+
+            <div className="register-phone">
+
+              <select
+                value={codigoPais}
+                onChange={(event) => {
+                  setCodigoPais(event.target.value);
+                  limpiarError("telefono");
+                }}
+                aria-label="Código de país"
+              >
+                <option value="+34">+34</option>
+                <option value="+57">+57</option>
+                <option value="+1">+1</option>
+                <option value="+52">+52</option>
+              </select>
+
+              <input
+                id="register-telefono"
+                type="tel"
+                placeholder="612 345 678"
+                value={telefono}
+                onChange={(event) => {
+                  setTelefono(event.target.value);
+                  limpiarError("telefono");
+                }}
+                autoComplete="tel"
+                aria-invalid={Boolean(errores.telefono)}
+              />
+
+            </div>
+
+            {errores.telefono && (
+              <small className="register-inline-error">
+                {errores.telefono}
+              </small>
+            )}
+          </div>
+
+          {/* PASSWORD */}
+          <div className="register-field">
+
+            <div className="register-label-row">
+              <label htmlFor="register-password">
+                Contraseña de acceso <span>*</span>
+              </label>
+
+              <small>
+                Mín. 8 caracteres
+              </small>
+            </div>
+
+            <div className="register-input-with-icon">
+
+              <span>♙</span>
+
+              <input
+                id="register-password"
+                type={mostrarPassword ? "text" : "password"}
+                placeholder="••••••••••••"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  limpiarError("password");
+                }}
+                autoComplete="new-password"
+                aria-invalid={Boolean(errores.password)}
+              />
+
+              <button
+                type="button"
+                className="register-password-toggle"
+                onClick={() =>
+                  setMostrarPassword((prev) => !prev)
+                }
+                aria-label={
+                  mostrarPassword
+                    ? "Ocultar contraseña"
+                    : "Mostrar contraseña"
+                }
+              >
+                {mostrarPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+
+            </div>
+
+            <div className="register-helper-row">
+              <span>◉ Seguridad recomendada</span>
+              <span>Ingresa tu clave</span>
+            </div>
+
+            {errores.password && (
+              <small className="register-inline-error">
+                {errores.password}
+              </small>
+            )}
+          </div>
+
+          {/* CONFIRMAR PASSWORD */}
+          <div className="register-field">
+
+            <label htmlFor="register-confirm-password">
+              Confirmar contraseña <span>*</span>
+            </label>
+
+            <div className="register-input-with-icon">
+
+              <span>♙</span>
+
+              <input
+                id="register-confirm-password"
+                type={
+                  mostrarConfirmarPassword
+                    ? "text"
+                    : "password"
+                }
+                placeholder="••••••••••••"
+                value={confirmarPassword}
+                onChange={(event) => {
+                  setConfirmarPassword(event.target.value);
+                  limpiarError("confirmarPassword");
+                }}
+                autoComplete="new-password"
+                aria-invalid={Boolean(errores.confirmarPassword)}
+              />
+
+              <button
+                type="button"
+                className="register-password-toggle"
+                onClick={() =>
+                  setMostrarConfirmarPassword((prev) => !prev)
+                }
+                aria-label={
+                  mostrarConfirmarPassword
+                    ? "Ocultar contraseña"
+                    : "Mostrar contraseña"
+                }
+              >
+                {mostrarConfirmarPassword ? (
+                  <FaEyeSlash />
+                ) : (
+                  <FaEye />
+                )}
+              </button>
+
+            </div>
+
+            {errores.confirmarPassword && (
+              <small className="register-inline-error">
+                {errores.confirmarPassword}
+              </small>
+            )}
+          </div>
+
+          {/* TERMINOS */}
+          <div className="register-terms">
+
+            <input
+              id="register-terms"
+              type="checkbox"
+              checked={aceptaTerminos}
+              onChange={(event) => {
+                setAceptaTerminos(event.target.checked);
+                limpiarError("terminos");
+              }}
+            />
+
+            <label htmlFor="register-terms">
+              Acepto los Términos de Servicio y reconozco la Política
+              de Privacidad de EventHub, incluyendo el tratamiento de
+              registros de producción logística.
+            </label>
+
+          </div>
+
+          {errores.terminos && (
+            <small className="register-inline-error register-terms-error">
+              {errores.terminos}
+            </small>
+          )}
+
+          {/* CONTINUAR */}
+          <button
+            type="submit"
+            className="register-submit"
+            disabled={enviando}
+          >
+            {enviando
+              ? "Creando cuenta..."
+              : "Continuar al Onboarding  →"}
+          </button>
+
+        </form>
+
+        {/* LOGIN */}
+        <div className="register-login-divider">
+          <span>¿YA TIENES CREDENCIALES?</span>
+        </div>
+
+        <button
+          type="button"
+          className="register-login-link"
+          onClick={() => navegar("/login")}
+        >
+          Iniciar Sesión en EventHub&nbsp; →
+        </button>
+
+      </section>
+    </main>
+  );
+}
 export default function App() {
   const [ruta, setRuta] = useState(obtenerRutaInicial);
   const [eventos, setEventos] = useState([]);
@@ -2864,6 +3328,13 @@ export default function App() {
         }}
       />
     );
+  }
+  if (ruta === "/registro") {
+    return <RegistroUsuario />;
+  }
+
+  if (ruta === "/registro/onboarding") {
+    return <OnboardingRegistro />;
   }
 
   return <main className="app">

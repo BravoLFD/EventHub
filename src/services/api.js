@@ -139,6 +139,13 @@ export function iniciarSesion(email, password) {
   });
 }
 
+export function registrarUsuario(datos) {
+  return request("/auth/registro", {
+    method: "POST",
+    body: JSON.stringify(datos),
+  });
+}
+
 // --- CONFIGURACIÓN DEL USUARIO ---
 
 export function obtenerConfiguracionUsuario() {
