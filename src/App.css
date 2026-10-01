@@ -2295,11 +2295,15 @@ small {
   top: 18px;
   right: 28px;
 
+  margin: 0;
+
   color: #4e5b72;
 
   font-size: 12px;
 
   font-weight: 700;
+
+  line-height: 1;
 }
 
 .today-task-card h3 {
@@ -2913,12 +2917,19 @@ small {
 }
 
 .today-overdue-top .today-hours {
-  margin-left: auto;
-  flex-shrink: 0;
+  position: absolute;
+
+  top: 18px;
+  right: 28px;
+
+  margin: 0;
 
   color: #4e5b72;
-  font-size: 13px;
+
+  font-size: 12px;
+
   font-weight: 700;
+
   line-height: 1;
 }
 
