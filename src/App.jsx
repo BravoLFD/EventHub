@@ -2190,10 +2190,6 @@ function Today({ onNotify }) {
                           ⚠ Retraso: {diasVencidos}{" "}
                           {diasVencidos === 1 ? "día" : "días"}
                         </span>
-
-                        <span className="today-overdue-id">
-                          #{tarea.id}
-                        </span>
                       </div>
 
                       <h3>
