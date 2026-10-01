@@ -1,7 +1,7 @@
 import "./App.css";
 import logo_EventHub from "./assets/Logo.png";
 import logo_Jaguar from "./assets/Logo_Jaguar.png";
-import { FaLock, FaEye, FaEyeSlash, FaDoorOpen, } from "react-icons/fa";
+import { FaLock, FaEye, FaEyeSlash,  FaDoorOpen,FaSyncAlt,} from "react-icons/fa";
 import Google from "./assets/Google.png";
 import Microsoft from "./assets/Microsoft.png";
 import { useEffect, useRef, useState } from "react";
@@ -2210,7 +2210,7 @@ function Today({ onNotify }) {
               aria-label="Actualizar vista"
               title="Actualizar vista"
             >
-              <FiRefreshCw aria-hidden="true" />
+              <FaSyncAlt aria-hidden="true" />
             </button>
           </div>
           <p>Prioriza lo importante y conserva el ritmo.</p>
