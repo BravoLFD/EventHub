@@ -2932,17 +2932,15 @@ function RegistroUsuario() {
 
         {/* BRAND */}
         <div className="register-brand">
-          <div className="register-brand-badge">
-            <img
-              src={logo_EventHub}
-              alt="EventHub"
-              className="register-logo"
-            />
+          <img
+            src={logo_EventHub}
+            alt="EventHub"
+            className="register-logo"
+          />
 
-            <span className="register-pro-badge">
-              PRO
-            </span>
-          </div>
+          <p className="register-subtitle">
+            PLATAFORMA DE GESTIÓN LOGÍSTICA DE EVENTOS
+          </p>
 
           <h1>Crea tu cuenta de organizador</h1>
 
