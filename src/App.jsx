@@ -2258,6 +2258,7 @@ function Today({ onNotify }) {
                 <div className="today-section-title">
                   <div>
                     <h2>Gestiones urgentes</h2>
+                    <p>Requiere todavía atención el día de hoy.</p>
                   </div>
 
                   <span className="today-count urgent-count">
