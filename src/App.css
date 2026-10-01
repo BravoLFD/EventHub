@@ -2203,10 +2203,10 @@ small {
 /* TAREA HOY */
 
 .today-task-card {
+  position: relative;
+
   display: flex;
-
   align-items: stretch;
-
   gap: 14px;
 
   padding: 15px;
@@ -2216,7 +2216,6 @@ small {
   background: #fff;
 
   border: 1px solid #dfe4ed;
-
   border-radius: 10px;
 
   transition:
@@ -2291,13 +2290,16 @@ small {
 }
 
 .today-hours {
-  margin-left: auto;
-  margin-right: 4px;
+  position: absolute;
+
+  top: 18px;
+  right: 28px;
+
   color: #4e5b72;
+
   font-size: 12px;
+
   font-weight: 700;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .today-task-card h3 {
