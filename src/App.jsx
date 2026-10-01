@@ -633,7 +633,10 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
     nombre: "",
     horas: "",
     estado: "pendiente",
-    dia_objetivo: eventoFecha || "",
+    dia_objetivo:
+      eventoFecha && eventoFecha >= obtenerFechaLocalHoy()
+        ? eventoFecha
+        : obtenerFechaLocalHoy(),
   });
 
   const [errores, setErrores] = useState({});
@@ -673,10 +676,14 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
       next.horas = "Las horas deben ser mayor a 0.";
     }
 
+    const hoy = obtenerFechaLocalHoy();
+
     if (!form.dia_objetivo) {
       next.dia_objetivo = "El día objetivo es requerido.";
+    } else if (form.dia_objetivo < hoy) {
+      next.dia_objetivo =
+        "El día objetivo no puede ser anterior a hoy.";
     }
-
     setErrores(next);
 
     if (Object.keys(next).length) return;
@@ -791,6 +798,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
         id="sub-dia-objetivo"
         name="dia_objetivo"
         type="date"
+        min={obtenerFechaLocalHoy()}
         value={form.dia_objetivo}
         onChange={actualizar}
         aria-invalid={Boolean(errores.dia_objetivo)}
@@ -1013,11 +1021,16 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
 }
 
 function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
+  const hoy = obtenerFechaLocalHoy();
+
   const [form, setForm] = useState({
     nombre: subtarea?.titulo ?? subtarea?.nombre ?? "",
     horas: subtarea?.horas_estimadas ?? subtarea?.horas ?? "",
     estado: normalizarEstado(subtarea?.estado),
-    dia_objetivo: subtarea?.dia_objetivo ?? "",
+    dia_objetivo:
+      subtarea?.dia_objetivo && subtarea.dia_objetivo >= hoy
+        ? subtarea.dia_objetivo
+        : hoy,
   });
 
   const [errores, setErrores] = useState({});
@@ -1056,11 +1069,14 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
     ) {
       next.horas = "Las horas deben ser mayor a 0.";
     }
+    const hoy = obtenerFechaLocalHoy();
 
     if (!form.dia_objetivo) {
       next.dia_objetivo = "El día objetivo es requerido.";
+    } else if (form.dia_objetivo < hoy) {
+      next.dia_objetivo =
+        "El día objetivo no puede ser anterior a hoy.";
     }
-
     setErrores(next);
 
     if (Object.keys(next).length) {
@@ -1170,6 +1186,7 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
         id="edit-sub-dia-objetivo"
         name="dia_objetivo"
         type="date"
+        min={obtenerFechaLocalHoy()}
         value={form.dia_objetivo}
         onChange={actualizar}
         aria-invalid={Boolean(errores.dia_objetivo)}
@@ -1678,6 +1695,11 @@ function Today({ onNotify }) {
   const [seleccionada, setSeleccionada] = useState(null);
   const [capacidadDiaria, setCapacidadDiaria] = useState(6);
 
+  const [tareaPosponer, setTareaPosponer] = useState(null);
+  const [nuevaFecha, setNuevaFecha] = useState("");
+  const [motivoPosposicion, setMotivoPosposicion] = useState("");
+  const [guardandoPosposicion, setGuardandoPosposicion] = useState(false);
+
   const cargarHoy = async () => {
     setCargando(true);
     setError("");
@@ -1749,7 +1771,41 @@ function Today({ onNotify }) {
   useEffect(() => {
     cargarHoy();
   }, []);
+  const abrirModalPosponer = (tarea) => {
+    setTareaPosponer(tarea);
+    setNuevaFecha("");
+    setMotivoPosposicion("");
+  };
+  const confirmarPosposicion = async () => {
+    if (!tareaPosponer || !nuevaFecha) {
+      return;
+    }
 
+    setGuardandoPosposicion(true);
+
+    try {
+      await actualizarParcialSubtarea(tareaPosponer.id, {
+        estado: "pospuesto",
+        dia_objetivo: nuevaFecha,
+        motivo_posposicion: motivoPosposicion.trim() || null,
+      });
+
+      setTareaPosponer(null);
+      setNuevaFecha("");
+      setMotivoPosposicion("");
+
+      await cargarHoy();
+
+      onNotify("Se pospuso con éxito.");
+    } catch (errorActual) {
+      onNotify(
+        errorActual.message || "No fue posible posponer la subtarea.",
+        "error"
+      );
+    } finally {
+      setGuardandoPosposicion(false);
+    }
+  };
   const cambiarEstado = async (tarea, nuevoEstado = null) => {
     const estadoActual = normalizarEstado(tarea.estado);
 
@@ -1863,12 +1919,26 @@ function Today({ onNotify }) {
           <div className="today-task-meta">
             <span>
               📅{" "}
-              {tarea.dia_objetivo
-                ? "Plazo: Hoy"
-                : tarea.evento?.fecha
-                  ? "Evento programado para hoy"
-                  : "Sin fecha específica"}
+              {estado === "pospuesto" && tarea.dia_objetivo
+                ? `Fecha reprogramada: ${new Intl.DateTimeFormat("es-CO", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                }).format(
+                  new Date(`${tarea.dia_objetivo}T00:00:00`)
+                )}`
+                : tarea.dia_objetivo
+                  ? "Plazo: Hoy"
+                  : tarea.evento?.fecha
+                    ? "Evento programado para hoy"
+                    : "Sin fecha específica"}
             </span>
+
+            {estado === "pospuesto" && tarea.motivo_posposicion && (
+              <span>
+                Razón: "{tarea.motivo_posposicion}"
+              </span>
+            )}
           </div>
         </div>
 
@@ -1893,7 +1963,7 @@ function Today({ onNotify }) {
                 className="today-action-secondary"
                 type="button"
                 disabled={actualizando === tarea.id}
-                onClick={() => cambiarEstado(tarea, "pospuesto")}
+                onClick={() => abrirModalPosponer(tarea)}
               >
                 Posponer
               </button>
@@ -2170,6 +2240,87 @@ function Today({ onNotify }) {
           ↻ Actualizar vista
         </button>
       </div>
+      {tareaPosponer && (
+        <div className="postpone-overlay">
+          <div
+            className="postpone-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="postpone-title"
+          >
+            <button
+              type="button"
+              className="postpone-close"
+              onClick={() => setTareaPosponer(null)}
+              disabled={guardandoPosposicion}
+              aria-label="Cerrar"
+            >
+              ×
+            </button>
+
+            <h2 id="postpone-title">¡Qué lástima!</h2>
+
+            <p>
+              ¿Deseas contarnos por qué se pospondrá esta gestión para
+              reprogramarla?
+            </p>
+
+            <div className="postpone-field">
+              <label htmlFor="nueva-fecha">
+                Nueva fecha <span>*</span>
+              </label>
+
+              <input
+                id="nueva-fecha"
+                type="date"
+                min={obtenerFechaLocalHoy()}
+                value={nuevaFecha}
+                onChange={(event) => setNuevaFecha(event.target.value)}
+                disabled={guardandoPosposicion}
+              />
+            </div>
+
+            <div className="postpone-field">
+              <label htmlFor="motivo-posposicion">
+                Razón <small>(Opcional)</small>
+              </label>
+
+              <textarea
+                id="motivo-posposicion"
+                value={motivoPosposicion}
+                onChange={(event) =>
+                  setMotivoPosposicion(event.target.value)
+                }
+                placeholder="Cuéntanos brevemente por qué se pospondrá..."
+                maxLength={500}
+                disabled={guardandoPosposicion}
+              />
+            </div>
+
+            <div className="postpone-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => setTareaPosponer(null)}
+                disabled={guardandoPosposicion}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btn primary"
+                onClick={confirmarPosposicion}
+                disabled={!nuevaFecha || guardandoPosposicion}
+              >
+                {guardandoPosposicion
+                  ? "Guardando..."
+                  : "Confirmar posposición"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -3473,3 +3473,145 @@ small {
     font-size: 9px;
   }
 }
+/* =========================================================
+   MODAL POSPONER
+   ========================================================= */
+
+.postpone-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.postpone-modal {
+  position: relative;
+
+  width: 100%;
+  max-width: 470px;
+
+  padding: 28px;
+
+  background: #ffffff;
+  border: 1px solid #d8dee9;
+  border-radius: 14px;
+
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+
+  box-sizing: border-box;
+}
+
+.postpone-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+
+  width: 30px;
+  height: 30px;
+
+  border: 0;
+  border-radius: 50%;
+
+  background: transparent;
+  color: #64748b;
+
+  font-size: 24px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.postpone-close:hover {
+  background: #f1f5f9;
+  color: #172033;
+}
+
+.postpone-modal h2 {
+  margin: 0 40px 8px 0;
+
+  color: #172033;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.postpone-modal > p {
+  margin: 0 0 22px;
+
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.postpone-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+
+  margin-bottom: 18px;
+}
+
+.postpone-field label {
+  color: #172033;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.postpone-field label span {
+  color: #b8323b;
+}
+
+.postpone-field label small {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.postpone-field input,
+.postpone-field textarea {
+  width: 100%;
+
+  padding: 10px 12px;
+
+  border: 1px solid #cbd3e0;
+  border-radius: 7px;
+
+  background: #ffffff;
+  color: #172033;
+
+  font-size: 14px;
+
+  box-sizing: border-box;
+}
+
+.postpone-field input {
+  height: 42px;
+}
+
+.postpone-field textarea {
+  min-height: 95px;
+  resize: vertical;
+}
+
+.postpone-field input:focus,
+.postpone-field textarea:focus {
+  outline: 3px solid rgba(33, 70, 199, 0.15);
+  border-color: #2146c7;
+}
+
+.postpone-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+
+  margin-top: 24px;
+  padding-top: 18px;
+
+  border-top: 1px solid #e0e4eb;
+}
