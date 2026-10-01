@@ -2810,7 +2810,192 @@ function Today({ onNotify }) {
   );
 }
 function OnboardingRegistro() {
-  return <div>Onboarding de registro</div>;
+  const [seleccionados, setSeleccionados] = useState([
+    "fiesta",
+    "corporativos",
+  ]);
+
+  const opciones = [
+    {
+      id: "fiesta",
+      titulo: "Fiesta",
+      etiqueta: "Social",
+      descripcion:
+        "Bodas, cumpleaños, aniversarios, galas y celebraciones sociales privadas.",
+      pie: "Plantillas de banquete",
+      icono: "✣",
+    },
+    {
+      id: "corporativos",
+      titulo: "Eventos corporativos",
+      etiqueta: "B2B",
+      descripcion:
+        "Lanzamientos de producto, congresos empresariales, reuniones de accionistas y convenciones.",
+      pie: "Actas y sponsors",
+      icono: "▦",
+    },
+    {
+      id: "personales",
+      titulo: "Eventos personales",
+      etiqueta: "Íntimo",
+      descripcion:
+        "Reuniones íntimas, baby showers, cenas exclusivas y compromisos familiares.",
+      pie: "Listas RSVP privadas",
+      icono: "♡",
+    },
+    {
+      id: "culturales",
+      titulo: "Eventos culturales",
+      etiqueta: "Público",
+      descripcion:
+        "Festivales de música, exposiciones de arte, obras de teatro y eventos comunitarios.",
+      pie: "Boletaje y aforos",
+      icono: "▣",
+    },
+    {
+      id: "tecnologia",
+      titulo: "Eventos en tecnología",
+      etiqueta: "Tech",
+      descripcion:
+        "Hackathones, summits tecnológicos, meetups de desarrolladores y lanzamientos de software.",
+      pie: "Sprints & Keynotes",
+      icono: "▤",
+    },
+  ];
+
+  const alternarSeleccion = (id) => {
+    setSeleccionados((actuales) =>
+      actuales.includes(id)
+        ? actuales.filter((item) => item !== id)
+        : [...actuales, id]
+    );
+  };
+
+  const comenzarOrganizar = () => {
+    navegar("/eventos");
+  };
+
+  const omitir = () => {
+    navegar("/eventos");
+  };
+
+  return (
+    <main className="onboarding-page">
+      <section className="onboarding-container">
+
+        {/* BRAND */}
+        <div className="onboarding-brand">
+          <img
+            src={logo_EventHub}
+            alt="EventHub"
+            className="onboarding-logo"
+          />
+
+          <span className="onboarding-workspace">
+            ESPACIO DE TRABAJO
+          </span>
+        </div>
+
+        {/* PASO */}
+        <div className="onboarding-step">
+          <span>☷</span>
+          <strong>Paso 2 de 2</strong>
+          <span>•</span>
+          <span>Personalización de tu espacio de trabajo</span>
+        </div>
+
+        {/* TITULO */}
+        <div className="onboarding-heading">
+          <h1>¿Qué enfoque estás buscando?</h1>
+
+          <p>
+            Selecciona el tipo de eventos que gestionas con mayor frecuencia
+            para calibrar tus plantillas, cronogramas y parámetros de capacidad.
+          </p>
+
+          <small>
+            ⓘ Puedes elegir más de uno para adaptar tu panel multifuncional
+          </small>
+        </div>
+
+        {/* OPCIONES */}
+        <div className="onboarding-options">
+          {opciones.map((opcion) => {
+            const seleccionado = seleccionados.includes(opcion.id);
+
+            return (
+              <button
+                key={opcion.id}
+                type="button"
+                className={`onboarding-option ${seleccionado ? "selected" : ""
+                  }`}
+                onClick={() => alternarSeleccion(opcion.id)}
+              >
+                <div className="onboarding-option-top">
+                  <span className="onboarding-option-icon">
+                    {opcion.icono}
+                  </span>
+
+                  <span
+                    className={`onboarding-check ${seleccionado ? "checked" : ""
+                      }`}
+                    aria-hidden="true"
+                  >
+                    {seleccionado ? "✓" : ""}
+                  </span>
+                </div>
+
+                <div className="onboarding-option-title">
+                  <h2>{opcion.titulo}</h2>
+                  <span>{opcion.etiqueta}</span>
+                </div>
+
+                <p>{opcion.descripcion}</p>
+
+                <div className="onboarding-option-footer">
+                  <span>{opcion.pie}</span>
+                  <span>→</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ACCIONES */}
+        <div className="onboarding-actions">
+          <button
+            type="button"
+            className="onboarding-skip"
+            onClick={omitir}
+          >
+            Omitir por ahora
+          </button>
+
+          <button
+            type="button"
+            className="onboarding-start"
+            onClick={comenzarOrganizar}
+          >
+            Comenzar a Organizar
+            <span>→</span>
+          </button>
+        </div>
+
+        {/* FOOTER */}
+        <footer className="onboarding-footer">
+          <strong>EventHub OS</strong>
+          <span>—</span>
+          <span>Plataforma Operativa de Alto Rendimiento para Productoras y Organizadores</span>
+
+          <small>
+            © 2025 EventHub Inc. Todos los derechos reservados.
+            Tus preferencias se sincronizan en la nube.
+          </small>
+        </footer>
+
+      </section>
+    </main>
+  );
 }
 function RegistroUsuario() {
   const [nombre, setNombre] = useState("");
@@ -2910,13 +3095,21 @@ function RegistroUsuario() {
         .replace(/\s+/g, " ")
         .trim()}`;
 
-      await registrarUsuario({
+      const dataRegistro = await registrarUsuario({
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         email: email.trim(),
         telefono: telefonoCompleto,
         password,
       });
+
+      // Iniciar sesión automáticamente después del registro
+      const sesion = await iniciarSesion(
+        email.trim(),
+        password
+      );
+
+      guardarSesion(sesion);
 
       navegar("/registro/onboarding");
     } catch (error) {
