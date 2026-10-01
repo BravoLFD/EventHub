@@ -2297,7 +2297,6 @@ small {
   color: #4e5b72;
 
   font-size: 12px;
-
   font-weight: 700;
 }
 
@@ -2773,6 +2772,11 @@ small {
   box-sizing: border-box;
 }
 
+.today-overdue-main {
+  width: 100%;
+  min-width: 0;
+}
+
 /* ENCABEZADO */
 
 .today-overdue-header {
@@ -2839,9 +2843,10 @@ small {
   width: 100%;
   min-width: 0;
   min-height: 142px;
+
   padding: 15px 18px 14px;
   margin: 0;
-  padding-right: 190px;
+
   background: #ffffff;
 
   border: 1px solid #dfe4ed;
@@ -2874,6 +2879,7 @@ small {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   margin-bottom: 10px;
 }
 
