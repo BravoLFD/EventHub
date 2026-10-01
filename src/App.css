@@ -1926,6 +1926,52 @@ small {
   max-width: 1300px;
 }
 
+.today-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.today-title-row h1 {
+  margin: 5px 0 7px;
+}
+
+.today-refresh-button {
+  width: 32px;
+  height: 32px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: 0;
+  background: transparent;
+
+  color: #64748b;
+
+  cursor: pointer;
+}
+
+.today-refresh-button svg {
+  width: 19px;
+  height: 19px;
+}
+
+.today-refresh-button:hover:not(:disabled) {
+  color: #315bd5;
+}
+
+.today-refresh-button:active:not(:disabled) {
+  transform: rotate(-35deg);
+}
+
+.today-refresh-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .today-header {
   display: flex;
 
@@ -2116,6 +2162,7 @@ small {
 
   font-size: 12px;
 }
+
 /* =========================================================
    FILTROS HOY
    ========================================================= */
@@ -2239,6 +2286,7 @@ small {
   background: #eef3ff;
   transform: rotate(-45deg);
 }
+
 @media (max-width: 900px) {
   .today-filters {
     flex-wrap: wrap;
@@ -2272,6 +2320,7 @@ small {
     width: 100%;
   }
 }
+
 /* LAYOUT HOY */
 
 .today-layout {
@@ -2685,14 +2734,6 @@ small {
   display: inline-flex;
 
   margin: 0 auto;
-}
-
-.today-refresh-row {
-  display: flex;
-
-  justify-content: flex-end;
-
-  margin-top: 5px;
 }
 
 /* =========================================================
@@ -4484,4 +4525,62 @@ small {
   padding-top: 18px;
 
   border-top: 1px solid #e0e4eb;
+}
+/* =========================================================
+   CERRAR SESIÓN
+   ========================================================= */
+
+.logout-button {
+  color: #526078;
+}
+
+.logout-button:hover {
+  color: #315bd5;
+  background: #eef3ff;
+}
+
+.logout-button svg {
+  width: 19px;
+  height: 19px;
+}
+
+
+/* =========================================================
+   MODAL CERRAR SESIÓN
+   ========================================================= */
+
+.logout-confirmation {
+  padding-top: 5px;
+}
+
+.logout-confirmation-icon {
+  width: 48px;
+  height: 48px;
+
+  display: grid;
+  place-items: center;
+
+  margin-bottom: 16px;
+
+  border-radius: 12px;
+
+  background: #eef3ff;
+  color: #315bd5;
+
+  font-size: 22px;
+}
+
+.logout-confirmation p {
+  margin: 0;
+
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.logout-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+
+  margin-top: 25px;
 }

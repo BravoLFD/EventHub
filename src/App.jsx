@@ -1,7 +1,7 @@
 import "./App.css";
 import logo_EventHub from "./assets/Logo.png";
 import logo_Jaguar from "./assets/Logo_Jaguar.png";
-import { FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaLock, FaEye, FaEyeSlash, FaDoorOpen, } from "react-icons/fa";
 import Google from "./assets/Google.png";
 import Microsoft from "./assets/Microsoft.png";
 import { useEffect, useRef, useState } from "react";
@@ -137,20 +137,132 @@ function Modal({ title, subtitle, close, children, wide = false }) {
 }
 
 function Header({ ruta, abrirCrear }) {
+  const [mostrarCerrarSesion, setMostrarCerrarSesion] = useState(false);
+
+  const confirmarCerrarSesion = () => {
+    cerrarSesion();
+    navegar("/login");
+  };
+
   return (
-    <header>
-      <button className="brand" type="button" onClick={() => navegar("/eventos")}><span className="brand-icon">✦</span>EventHub</button>
-      <nav aria-label="Navegación principal">
-        <button className={ruta === "/eventos" || ruta.startsWith("/eventos/") ? "nav-link active" : "nav-link"} onClick={() => navegar("/eventos")}>✦ Eventos</button>
-        <button className={ruta === "/hoy" ? "nav-link active" : "nav-link"} onClick={() => navegar("/hoy")}> Hoy</button>
-      </nav>
-      <div className="header-spacer" />
-      <div className="search-placeholder">⌕ <span>Buscar eventos, tareas...</span></div>
-      <button className="icon-button" aria-label="Notificaciones">☾</button>
-      <button className="icon-button" aria-label="Ayuda">?</button>
-      <button className="btn primary header-create" type="button" onClick={abrirCrear}>＋ Crear Evento</button>
-      <button className="avatar" type="button" aria-label="Abrir configuración" onClick={() => navegar("/configuracion")}>LV</button> <button className="icon-button" type="button" aria-label="Cerrar sesión" onClick={() => { cerrarSesion(); navegar("/login"); }}>↪</button>
-    </header>
+    <>
+      <header>
+        <button
+          className="brand"
+          type="button"
+          onClick={() => navegar("/eventos")}
+        >
+          <span className="brand-icon">✦</span>
+          EventHub
+        </button>
+
+        <nav aria-label="Navegación principal">
+          <button
+            className={
+              ruta === "/eventos" || ruta.startsWith("/eventos/")
+                ? "nav-link active"
+                : "nav-link"
+            }
+            onClick={() => navegar("/eventos")}
+          >
+            ✦ Eventos
+          </button>
+
+          <button
+            className={ruta === "/hoy" ? "nav-link active" : "nav-link"}
+            onClick={() => navegar("/hoy")}
+          >
+            Hoy
+          </button>
+        </nav>
+
+        <div className="header-spacer" />
+
+        <div className="search-placeholder">
+          ⌕ <span>Buscar eventos, tareas...</span>
+        </div>
+
+        <button
+          className="icon-button"
+          type="button"
+          aria-label="Notificaciones"
+        >
+          ☾
+        </button>
+
+        <button
+          className="icon-button"
+          type="button"
+          aria-label="Ayuda"
+        >
+          ?
+        </button>
+
+        <button
+          className="btn primary header-create"
+          type="button"
+          onClick={abrirCrear}
+        >
+          ＋ Crear Evento
+        </button>
+
+        <button
+          className="avatar"
+          type="button"
+          aria-label="Abrir configuración"
+          onClick={() => navegar("/configuracion")}
+        >
+          LV
+        </button>
+
+        <button
+          className="icon-button logout-button"
+          type="button"
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
+          onClick={() => setMostrarCerrarSesion(true)}
+        >
+          <FaDoorOpen aria-hidden="true" />
+        </button>
+      </header>
+
+      {mostrarCerrarSesion && (
+        <Modal
+          title="¿Deseas cerrar sesión?"
+          subtitle="Tu sesión se cerrará en este dispositivo."
+          close={() => setMostrarCerrarSesion(false)}
+        >
+          <div className="logout-confirmation">
+            <div className="logout-confirmation-icon">
+              <FaDoorOpen aria-hidden="true" />
+            </div>
+
+            <p>
+              Si cierras sesión, tendrás que iniciar sesión nuevamente
+              para acceder a EventHub.
+            </p>
+
+            <div className="logout-confirmation-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => setMostrarCerrarSesion(false)}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btn danger"
+                onClick={confirmarCerrarSesion}
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
 {/* Login */ }
@@ -2087,7 +2199,20 @@ function Today({ onNotify }) {
               year: "numeric",
             }).format(new Date())}
           </small>
-          <h1>Hoy</h1>
+          <div className="today-title-row">
+            <h1>Hoy</h1>
+
+            <button
+              className="today-refresh-button"
+              type="button"
+              onClick={cargarHoy}
+              disabled={cargando}
+              aria-label="Actualizar vista"
+              title="Actualizar vista"
+            >
+              <FiRefreshCw aria-hidden="true" />
+            </button>
+          </div>
           <p>Prioriza lo importante y conserva el ritmo.</p>
         </div>
 
@@ -2249,7 +2374,7 @@ function Today({ onNotify }) {
 
               <p>
                 {filtroBusqueda || filtroEvento || filtroEstado
-                  ? "No encontramos gestiones que coincidan con los filtros seleccionados."
+                  ? "No encontramos gestiones para hoy que coincidan con los filtros seleccionados."
                   : "No encontramos subtareas cuya fecha objetivo o evento corresponda a hoy."}
               </p>
 
@@ -2588,16 +2713,6 @@ function Today({ onNotify }) {
           </div>
         )}
       </section>
-      <div className="today-refresh-row">
-        <button
-          className="btn secondary"
-          type="button"
-          onClick={cargarHoy}
-          disabled={cargando}
-        >
-          ↻ Actualizar vista
-        </button>
-      </div>
       {tareaPosponer && (
         <div className="postpone-overlay">
           <div
