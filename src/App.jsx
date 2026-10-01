@@ -1689,6 +1689,8 @@ function obtenerFechaLocalHoy() {
 
 function Today({ onNotify }) {
   const [tareas, setTareas] = useState([]);
+  const [gestionesVencidas, setGestionesVencidas] = useState([]);
+  const [proximasGestiones, setProximasGestiones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [actualizando, setActualizando] = useState(null);
@@ -1699,6 +1701,7 @@ function Today({ onNotify }) {
   const [nuevaFecha, setNuevaFecha] = useState("");
   const [motivoPosposicion, setMotivoPosposicion] = useState("");
   const [guardandoPosposicion, setGuardandoPosposicion] = useState(false);
+
 
   const cargarHoy = async () => {
     setCargando(true);
@@ -1724,16 +1727,17 @@ function Today({ onNotify }) {
 
       const hoy = obtenerFechaLocalHoy();
 
-      const tareasDeHoy = listaSubtareas
-        .map((subtarea) => {
-          const evento = eventosPorId.get(String(subtarea.evento_id));
+      const subtareasPreparadas = listaSubtareas.map((subtarea) => {
+        const evento = eventosPorId.get(String(subtarea.evento_id));
 
-          return {
-            ...subtarea,
-            evento,
-            fechaObjetivo: subtarea.dia_objetivo || evento?.fecha || null,
-          };
-        })
+        return {
+          ...subtarea,
+          evento,
+          fechaObjetivo: subtarea.dia_objetivo || evento?.fecha || null,
+        };
+      });
+
+      const tareasDeHoy = subtareasPreparadas
         .filter(
           (subtarea) =>
             String(subtarea.fechaObjetivo || "").slice(0, 10) === hoy
@@ -1752,6 +1756,45 @@ function Today({ onNotify }) {
         });
 
       setTareas(tareasDeHoy);
+      const vencidas = subtareasPreparadas
+        .filter((subtarea) => {
+          const fecha = String(subtarea.fechaObjetivo || "").slice(0, 10);
+          const estado = normalizarEstado(subtarea.estado);
+
+          return (
+            fecha &&
+            fecha < hoy &&
+            estado !== "hecho"
+          );
+        })
+        .sort((a, b) => {
+          const fechaA = String(a.fechaObjetivo || "").slice(0, 10);
+          const fechaB = String(b.fechaObjetivo || "").slice(0, 10);
+
+          return fechaA.localeCompare(fechaB);
+        });
+
+      setGestionesVencidas(vencidas);
+      const proximas = subtareasPreparadas
+        .filter((subtarea) => {
+          const fecha = String(subtarea.fechaObjetivo || "").slice(0, 10);
+          const estado = normalizarEstado(subtarea.estado);
+
+          return (
+            fecha &&
+            fecha > hoy &&
+            estado !== "hecho"
+          );
+        })
+        .sort((a, b) => {
+          const fechaA = String(a.fechaObjetivo || "").slice(0, 10);
+          const fechaB = String(b.fechaObjetivo || "").slice(0, 10);
+
+          return fechaA.localeCompare(fechaB);
+        })
+        .slice(0, 8);
+
+      setProximasGestiones(proximas);
 
       if (
         seleccionada &&
@@ -1796,10 +1839,10 @@ function Today({ onNotify }) {
 
       await cargarHoy();
 
-      onNotify("Se pospuso con éxito.");
+      onNotify("Se reprogramó con éxito.");
     } catch (errorActual) {
       onNotify(
-        errorActual.message || "No fue posible posponer la subtarea.",
+        errorActual.message || "No fue posible reprogramar la subtarea.",
         "error"
       );
     } finally {
@@ -1965,7 +2008,7 @@ function Today({ onNotify }) {
                 disabled={actualizando === tarea.id}
                 onClick={() => abrirModalPosponer(tarea)}
               >
-                Posponer
+                Reprogramar
               </button>
             </>
           ) : (
@@ -2077,7 +2120,7 @@ function Today({ onNotify }) {
             </section>
           )}
 
-          {!cargando && !error && tareas.length === 0 && (
+          {!cargando && !error && tareas.length === 0 && gestionesVencidas.length === 0 && (
             <section className="card today-no-tasks">
               <div className="empty-icon">✓</div>
               <h2>No hay gestiones para hoy</h2>
@@ -2092,6 +2135,120 @@ function Today({ onNotify }) {
               >
                 Ver eventos
               </button>
+            </section>
+          )}
+          {!cargando && !error && gestionesVencidas.length > 0 && (
+            <section className="today-overdue-section">
+
+              <div className="today-overdue-header">
+                <div>
+                  <h2>
+                    Gestiones Vencidas
+                    <span className="today-overdue-count">
+                      {gestionesVencidas.length} requeridas
+                    </span>
+                  </h2>
+
+                  <p>
+                    Estas gestiones requieren atención inmediata.
+                  </p>
+                </div>
+
+                <span className="today-overdue-risk">
+                  ⚠ Riesgo operativo acumulado
+                </span>
+              </div>
+
+              <div className="today-overdue-grid">
+                {gestionesVencidas.map((tarea) => {
+                  const fecha = String(
+                    tarea.fechaObjetivo || ""
+                  ).slice(0, 10);
+
+                  const fechaVencida = new Date(`${fecha}T00:00:00`);
+                  const fechaHoy = new Date(
+                    `${obtenerFechaLocalHoy()}T00:00:00`
+                  );
+
+                  const diasVencidos = Math.max(
+                    1,
+                    Math.round(
+                      (fechaHoy - fechaVencida) /
+                      (1000 * 60 * 60 * 24)
+                    )
+                  );
+
+                  return (
+                    <article
+                      className="today-overdue-card"
+                      key={tarea.id}
+                      onClick={() => setSeleccionada(tarea)}
+                    >
+
+                      <div className="today-overdue-top">
+                        <span className="today-overdue-badge">
+                          ⚠ Retraso: {diasVencidos}{" "}
+                          {diasVencidos === 1 ? "día" : "días"}
+                        </span>
+
+                        <span className="today-overdue-id">
+                          #{tarea.id}
+                        </span>
+                      </div>
+
+                      <h3>
+                        {obtenerTituloSubtarea(tarea)}
+                      </h3>
+
+                      {tarea.evento?.descripcion && (
+                        <p className="today-overdue-description">
+                          {tarea.evento.descripcion}
+                        </p>
+                      )}
+
+                      <div className="today-overdue-meta">
+                        <span>
+                          📅 {tarea.evento?.titulo || "Evento sin título"}
+                        </span>
+
+                        <span>
+                          ⏱ {obtenerHoras(tarea)}h
+                        </span>
+                      </div>
+
+                      <div className="today-overdue-actions">
+
+                        <button
+                          type="button"
+                          className="today-overdue-reprogram"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSeleccionada(tarea);
+                          }}
+                        >
+                          Reprogramar
+                        </button>
+
+                        <button
+                          type="button"
+                          className="today-overdue-resolve"
+                          disabled={actualizando === tarea.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            cambiarEstado(tarea, "hecho");
+                          }}
+                        >
+                          {actualizando === tarea.id
+                            ? "Guardando..."
+                            : "Resolver ahora"}
+                        </button>
+
+                      </div>
+
+                    </article>
+                  );
+                })}
+              </div>
             </section>
           )}
 
@@ -2196,11 +2353,9 @@ function Today({ onNotify }) {
                     className="today-panel-secondary"
                     type="button"
                     disabled={actualizando === seleccionada.id}
-                    onClick={() =>
-                      cambiarEstado(seleccionada, "pospuesto")
-                    }
+                    onClick={() => abrirModalPosponer(seleccionada)}
                   >
-                    Posponer gestión
+                    Reprogramar gestión
                   </button>
                 </>
               ) : (
@@ -2229,7 +2384,78 @@ function Today({ onNotify }) {
           )}
         </aside>
       </div>
+      <section className="today-upcoming-section">
+        <div className="today-upcoming-header">
+          <div>
+            <h2>Próximas gestiones</h2>
+            <p>Ten presentes las gestiones programadas para los próximos días.</p>
+          </div>
 
+          <span className="today-upcoming-count">
+            {proximasGestiones.length}
+          </span>
+        </div>
+
+        {proximasGestiones.length === 0 ? (
+          <div className="today-upcoming-empty">
+            <span>✓</span>
+            <p>No tienes próximas gestiones programadas.</p>
+          </div>
+        ) : (
+          <div className="today-upcoming-list">
+            {proximasGestiones.map((tarea) => {
+              const fecha = String(tarea.fechaObjetivo || "").slice(0, 10);
+
+              const fechaTarea = new Date(`${fecha}T00:00:00`);
+              const fechaHoy = new Date(
+                `${obtenerFechaLocalHoy()}T00:00:00`
+              );
+
+              const diferenciaDias = Math.round(
+                (fechaTarea - fechaHoy) / (1000 * 60 * 60 * 24)
+              );
+
+              return (
+                <article
+                  className="today-upcoming-card"
+                  key={tarea.id}
+                  onClick={() => setSeleccionada(tarea)}
+                >
+                  <div className="today-upcoming-days">
+                    <strong>+{diferenciaDias}</strong>
+                    <span>día{diferenciaDias !== 1 ? "s" : ""}</span>
+                  </div>
+
+                  <div className="today-upcoming-main">
+                    <h3>{obtenerTituloSubtarea(tarea)}</h3>
+
+                    <div className="today-upcoming-meta">
+                      <span>
+                        📅{" "}
+                        {tarea.evento?.titulo || "Evento sin título"}
+                      </span>
+
+                      <span>•</span>
+
+                      <span>
+                        {formatearFecha(tarea.fechaObjetivo)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="today-upcoming-hours">
+                    {obtenerHoras(tarea)}h
+                  </div>
+
+                  <span className="today-upcoming-arrow">
+                    Ver detalles →
+                  </span>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
       <div className="today-refresh-row">
         <button
           className="btn secondary"
@@ -2261,10 +2487,10 @@ function Today({ onNotify }) {
             <h2 id="postpone-title">¡Qué lástima!</h2>
 
             <p>
-              ¿Deseas contarnos por qué se pospondrá esta gestión para
-              reprogramarla?
+              ¿Deseas contarnos por qué se reprogramará esta gestión?
+              <br />
+              <small>La razón es opcional.</small>
             </p>
-
             <div className="postpone-field">
               <label htmlFor="nueva-fecha">
                 Nueva fecha <span>*</span>
@@ -2315,7 +2541,7 @@ function Today({ onNotify }) {
               >
                 {guardandoPosposicion
                   ? "Guardando..."
-                  : "Confirmar posposición"}
+                  : "Confirmar reprogramación"}
               </button>
             </div>
           </div>
