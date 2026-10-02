@@ -81,7 +81,7 @@ header {
 
   background: transparent;
 
-  color: #12339c;
+  color: #315bd5;
 
   font-size: 22px;
   font-weight: 800;
@@ -89,28 +89,12 @@ header {
   white-space: nowrap;
 }
 
-.brand-icon {
-  width: 31px;
-  height: 31px;
-
-  display: grid;
-  place-items: center;
-
-  border-radius: 9px;
-
-  background:
-    linear-gradient(135deg,
-      #315bd5,
-      #2448b8);
-
-  color: #fff;
-
-  font-size: 14px;
-
-  box-shadow:
-    0 6px 14px rgba(49, 91, 213, 0.22);
+.brand-logo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  display: block;
 }
-
 
 /* NAVEGACIÓN */
 
@@ -2255,7 +2239,14 @@ small {
 
   cursor: pointer;
 }
+.reset-icon {
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
 
+.today-filter-reset:hover .reset-icon {
+    transform: rotate(180deg);
+}
 .today-filter-reset {
   width: 42px;
   height: 42px;

@@ -152,8 +152,12 @@ function Header({ ruta, abrirCrear }) {
           type="button"
           onClick={() => navegar("/eventos")}
         >
-          <span className="brand-icon">✦</span>
-          EventHub
+          <img
+            src={logo_Jaguar}
+            alt="Jaguar EventHub"
+            className="brand-logo"
+          />
+          <span>EventHub</span>
         </button>
 
         <nav aria-label="Navegación principal">
@@ -2328,20 +2332,10 @@ function Today({ onNotify }) {
             <option value="pospuesto">Pospuesto</option>
             <option value="hecho">Hecho</option>
           </select>
-        </div>
+        </div>EventHub
 
-        <button
-          type="button"
-          className="today-filter-reset"
-          onClick={() => {
-            setFiltroBusqueda("");
-            setFiltroEvento("");
-            setFiltroEstado("");
-          }}
-          aria-label="Limpiar filtros"
-          title="Limpiar filtros"
-        >
-          ↻
+        <button type="button" class="today-filter-reset" aria-label="Limpiar filtros" title="Limpiar filtros">
+          <span class="reset-icon">↻</span>
         </button>
 
       </div>
