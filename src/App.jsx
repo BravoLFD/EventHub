@@ -1841,18 +1841,38 @@ function Today({ onNotify }) {
     setError("");
 
     try {
-      const [eventosData, subtareasData, configuracionData] = await Promise.all([
+      const [eventosData, subtareasData] = await Promise.all([
         obtenerEventos(),
         obtenerSubtareas(),
-        obtenerConfiguracionUsuario(),
       ]);
 
-      const listaEventos = Array.isArray(eventosData) ? eventosData : [];
-      const listaSubtareas = Array.isArray(subtareasData) ? subtareasData : [];
+      let configuracionData = null;
+
+      try {
+        configuracionData = await obtenerConfiguracionUsuario();
+      } catch {
+        configuracionData = {
+          horas_dia: 6,
+        };
+      }
+
+      const listaEventos = Array.isArray(eventosData)
+        ? eventosData
+        : [];
+
+      const listaSubtareas = Array.isArray(subtareasData)
+        ? subtareasData
+        : [];
+
       const horasConfiguradas = Number(configuracionData?.horas_dia);
 
-      if (Number.isInteger(horasConfiguradas) && horasConfiguradas > 0) {
+      if (
+        Number.isInteger(horasConfiguradas) &&
+        horasConfiguradas > 0
+      ) {
         setCapacidadDiaria(horasConfiguradas);
+      } else {
+        setCapacidadDiaria(6);
       }
       const eventosPorId = new Map(
         listaEventos.map((evento) => [String(evento.id), evento])
