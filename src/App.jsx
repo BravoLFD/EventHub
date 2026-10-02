@@ -35,11 +35,7 @@ function rutaActual() {
   return rutas.includes(path) ? path : "/eventos";
 }
 function esRutaPublica(path) {
-   return (
-    path === "/login" ||
-    path === "/registro/onboarding" ||
-    path === "/onboarding"
-  );
+   return path === "/login";
 }
 
 function esRutaPrivada(path) {
@@ -55,15 +51,7 @@ function esRutaPrivada(path) {
 function obtenerRutaInicial() {
   const path = window.location.pathname;
 
-  if (path === "/onboarding") {
-    return "/registro/onboarding";
-  }
-
   if (esRutaPublica(path)) {
-    if (path === "/registro/onboarding") {
-      return "/registro/onboarding";
-    }
-
     return estaAutenticado() ? "/eventos" : "/login";
   }
 
@@ -73,19 +61,6 @@ function obtenerRutaInicial() {
 
   return estaAutenticado() ? "/eventos" : "/login";
 }
-// function obtenerRutaInicial() {
-//   const path = window.location.pathname;
-
-//   if (esRutaPublica(path)) {
-//     return estaAutenticado() ? "/eventos" : "/login";
-//   }
-
-//   if (esRutaPrivada(path)) {
-//     return estaAutenticado() ? rutaActual() : "/login";
-//   }
-
-//   return estaAutenticado() ? "/eventos" : "/login";
-// }
 
 function navegar(path) {
   if (esRutaPrivada(path) && !estaAutenticado()) {
