@@ -1,27 +1,83 @@
 import "./App.css";
+import logo_EventHub from "./assets/Logo.png";
+import logo_Jaguar from "./assets/Logo_Jaguar.png";
+import { FaLock, FaEye, FaEyeSlash, FaDoorOpen, FaSyncAlt, } from "react-icons/fa";
+import Google from "./assets/Google.png";
+import Microsoft from "./assets/Microsoft.png";
 import { useEffect, useRef, useState } from "react";
 import {
   actualizarEvento,
   actualizarSubtarea,
+  actualizarConfiguracionUsuario,
   crearEvento,
   crearSubtarea,
   eliminarEvento,
   eliminarSubtarea,
+  iniciarSesion,
+  registrarUsuario,
+  obtenerConfiguracionUsuario,
   obtenerEvento,
   obtenerEventos,
   obtenerSubtareas,
+  actualizarParcialSubtarea,
 } from "./services/api.js";
+import {
+  cerrarSesion,
+  estaAutenticado,
+  guardarSesion,
+} from "./services/auth.js";
 
-const rutas = ["/eventos", "/hoy", "/crear-evento"];
+const rutas = ["/login", "/registro", "/registro/onboarding", "/eventos", "/hoy", "/crear-evento", "/configuracion"];
 
 function rutaActual() {
   const path = window.location.pathname;
   if (path.startsWith("/eventos/") && path.split("/")[2]) return path;
   return rutas.includes(path) ? path : "/eventos";
 }
+function esRutaPublica(path) {
+  return path === "/login" || path === "/registro";
+}
+function esRutaPrivada(path) {
+  return (
+    path === "/eventos" ||
+    path === "/hoy" ||
+    path === "/crear-evento" ||
+    path === "/configuracion" ||
+    path === "/progreso" ||
+    path === "/registro/onboarding" ||
+    path.startsWith("/eventos/")
+  );
+}
+function obtenerRutaInicial() {
+  const path = window.location.pathname;
+
+  if (esRutaPublica(path)) {
+    return estaAutenticado() ? "/eventos" : "/login";
+  }
+
+  if (esRutaPrivada(path)) {
+    return estaAutenticado() ? rutaActual() : "/login";
+  }
+
+  return estaAutenticado() ? "/eventos" : "/login";
+}
 
 function navegar(path) {
-  if (window.location.pathname !== path) window.history.pushState({}, "", path);
+  if (esRutaPrivada(path) && !estaAutenticado()) {
+    path = "/login";
+  }
+
+  if (
+    path === "/login" &&
+    estaAutenticado()
+  ) {
+    path = "/eventos";
+  }
+
+  if (window.location.pathname !== path) {
+    window.history.pushState({}, "", path);
+  }
+
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
@@ -81,20 +137,428 @@ function Modal({ title, subtitle, close, children, wide = false }) {
 }
 
 function Header({ ruta, abrirCrear }) {
+  const [mostrarCerrarSesion, setMostrarCerrarSesion] = useState(false);
+
+  const confirmarCerrarSesion = () => {
+    cerrarSesion();
+    navegar("/login");
+  };
+
   return (
-    <header>
-      <button className="brand" type="button" onClick={() => navegar("/eventos")}><span className="brand-icon">✦</span>EventHub</button>
-      <nav aria-label="Navegación principal">
-        <button className={ruta === "/eventos" || ruta.startsWith("/eventos/") ? "nav-link active" : "nav-link"} onClick={() => navegar("/eventos")}>✦ Eventos</button>
-        <button className={ruta === "/hoy" ? "nav-link active" : "nav-link"} onClick={() => navegar("/hoy")}> Hoy</button>
-      </nav>
-      <div className="header-spacer" />
-      <div className="search-placeholder">⌕ <span>Buscar eventos, tareas...</span></div>
-      <button className="icon-button" aria-label="Notificaciones">☾</button>
-      <button className="icon-button" aria-label="Ayuda">?</button>
-      <button className="btn primary header-create" type="button" onClick={abrirCrear}>＋ Crear Evento</button>
-      <div className="avatar" aria-label="Perfil">LV</div>
-    </header>
+    <>
+      <header>
+        <button
+          className="brand"
+          type="button"
+          onClick={() => navegar("/eventos")}
+        >
+          <img
+            src={logo_Jaguar}
+            alt="Jaguar EventHub"
+            className="brand-logo"
+          />
+          <span>EventHub</span>
+        </button>
+
+        <nav aria-label="Navegación principal">
+          <button
+            className={
+              ruta === "/eventos" || ruta.startsWith("/eventos/")
+                ? "nav-link active"
+                : "nav-link"
+            }
+            onClick={() => navegar("/eventos")}
+          >
+            ✦ Eventos
+          </button>
+
+          <button
+            className={ruta === "/hoy" ? "nav-link active" : "nav-link"}
+            onClick={() => navegar("/hoy")}
+          >
+            Hoy
+          </button>
+        </nav>
+
+        <div className="header-spacer" />
+
+        <div className="search-placeholder">
+          ⌕ <span>Buscar eventos, tareas...</span>
+        </div>
+
+        <button
+          className="icon-button"
+          type="button"
+          aria-label="Notificaciones"
+        >
+          ☾
+        </button>
+
+        <button
+          className="icon-button"
+          type="button"
+          aria-label="Ayuda"
+        >
+          ?
+        </button>
+
+        <button
+          className="btn primary header-create"
+          type="button"
+          onClick={abrirCrear}
+        >
+          ＋ Crear Evento
+        </button>
+
+        <button
+          className="avatar"
+          type="button"
+          aria-label="Abrir configuración"
+          onClick={() => navegar("/configuracion")}
+        >
+          LV
+        </button>
+
+        <button
+          className="icon-button logout-button"
+          type="button"
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
+          onClick={() => setMostrarCerrarSesion(true)}
+        >
+          <FaDoorOpen aria-hidden="true" />
+        </button>
+      </header>
+
+      {mostrarCerrarSesion && (
+        <Modal
+          title="¿Deseas cerrar sesión?"
+          subtitle="Tu sesión se cerrará en este dispositivo."
+          close={() => setMostrarCerrarSesion(false)}
+        >
+          <div className="logout-confirmation">
+            <div className="logout-confirmation-icon">
+              <FaDoorOpen aria-hidden="true" />
+            </div>
+
+            <p>
+              Si cierras sesión, tendrás que iniciar sesión nuevamente
+              para acceder a EventHub.
+            </p>
+
+            <div className="logout-confirmation-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => setMostrarCerrarSesion(false)}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btn danger"
+                onClick={confirmarCerrarSesion}
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}
+{/* Login */ }
+function Login({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+
+  const [errores, setErrores] = useState({});
+  const [errorServidor, setErrorServidor] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  const validar = () => {
+    const next = {};
+
+    if (!email.trim()) {
+      next.email = "El correo electrónico es requerido.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      next.email = "Ingresa un correo electrónico válido.";
+    }
+
+    if (!password) {
+      next.password = "La contraseña es requerida.";
+    }
+
+    return next;
+  };
+
+  const enviar = async (event) => {
+    event.preventDefault();
+
+    const next = validar();
+
+    setErrores(next);
+    setErrorServidor("");
+
+    if (Object.keys(next).length > 0) {
+      return;
+    }
+
+    setEnviando(true);
+
+    try {
+      const data = await iniciarSesion(
+        email.trim(),
+        password
+      );
+
+      guardarSesion(data);
+
+      onLogin();
+    } catch (error) {
+      setErrorServidor(
+        error.message || "No fue posible iniciar sesión."
+      );
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <main className="login-page">
+      <section className="login-card">
+
+        {/* LOGO */}
+        <div className="login-brand">
+          <img
+            src={logo_EventHub}
+            alt="EventHub"
+            className="login-logo"
+          />
+
+          <p className="login-subtitle">
+            PLATAFORMA DE GESTIÓN LOGÍSTICA DE EVENTOS
+          </p>
+
+          <span className="security-badge">
+            🛡 Portal Operativo Seguro
+          </span>
+        </div>
+
+        {/* ERROR DEL SERVIDOR */}
+        {errorServidor && (
+          <div className="login-error" role="alert">
+            <strong>No fue posible iniciar sesión.</strong>
+            <span>{errorServidor}</span>
+          </div>
+        )}
+
+        {/* FORMULARIO */}
+        <form onSubmit={enviar} noValidate>
+
+          <div className="login-field">
+            <label htmlFor="login-email">
+              Correo electrónico o usuario
+            </label>
+
+            <div className="login-input-wrapper">
+              <span className="login-input-icon">✉</span>
+
+              <input
+                id="login-email"
+                type="email"
+                placeholder="ejemplo@organizacion.com"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+
+                  setErrores((prev) => ({
+                    ...prev,
+                    email: "",
+                  }));
+
+                  setErrorServidor("");
+                }}
+                autoComplete="email"
+                autoFocus
+                aria-invalid={Boolean(errores.email)}
+                className={errores.email ? "input-error" : ""}
+              />
+            </div>
+
+            {errores.email && (
+              <p className="inline-error" role="alert">
+                {errores.email}
+              </p>
+            )}
+          </div>
+
+          <div className="login-field">
+            <label htmlFor="login-password">
+              Contraseña
+            </label>
+
+            <div className="login-input-wrapper">
+              <span className="login-input-icon">♙</span>
+
+              <input
+                id="login-password"
+                type={mostrarPassword ? "text" : "password"}
+                placeholder="••••••••••••"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+
+                  setErrores((prev) => ({
+                    ...prev,
+                    password: "",
+                  }));
+
+                  setErrorServidor("");
+                }}
+                autoComplete="current-password"
+                aria-invalid={Boolean(errores.password)}
+                className={errores.password ? "input-error" : ""}
+              />
+
+              <button
+                type="button"
+                className="login-password-toggle"
+                onClick={() => setMostrarPassword((prev) => !prev)}
+                aria-label={
+                  mostrarPassword
+                    ? "Ocultar contraseña"
+                    : "Mostrar contraseña"
+                }
+              >
+                {mostrarPassword ? <FaEye /> : <FaEyeSlash />}
+              </button>
+            </div>
+
+            {errores.password && (
+              <p className="inline-error" role="alert">
+                {errores.password}
+              </p>
+            )}
+          </div>
+
+          {/* OPCIONES */}
+          <div className="login-options">
+
+            <label className="remember-option">
+              <input type="checkbox" />
+              <span>
+                Recordar sesión en este equipo
+              </span>
+            </label>
+
+            <button
+              type="button"
+              className="forgot-password"
+              disabled
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+
+          </div>
+
+          {/* LOGIN */}
+          <button
+            className="login-submit"
+            type="submit"
+            disabled={enviando}
+          >
+            {enviando
+              ? "Iniciando sesión..."
+              : (
+                <>
+                  Iniciar Sesión
+                  <span>→</span>
+                </>
+              )}
+          </button>
+
+        </form>
+
+        {/* LOGIN CORPORATIVO */}
+        <div className="corporate-divider">
+          <span></span>
+          <p>O CONTINUAR CON SSO CORPORATIVO</p>
+          <span></span>
+        </div>
+
+        <div className="corporate-buttons">
+
+          <button
+            type="button"
+            className="corporate-button"
+            disabled
+            title="Inicio de sesión con Google próximamente"
+          >
+            <img
+              src={Google}
+              alt=""
+              className="corporate-icon"
+            />
+            Google
+          </button>
+
+          <button
+            type="button"
+            className="corporate-button"
+            disabled
+            title="Inicio de sesión con Microsoft próximamente"
+          >
+            <img
+              src={Microsoft}
+              alt=""
+              className="corporate-icon"
+            />
+            Microsoft
+          </button>
+
+        </div>
+        {/* REGISTRO */}
+        <div className="login-register">
+          <span>¿Eres un usuario nuevo?</span>
+
+          <button
+            type="button"
+            onClick={() => navegar("/registro")}
+          >
+            Regístrate
+          </button>
+        </div>
+
+        {/* AVISO DE SEGURIDAD */}
+        <div className="security-message">
+          <FaLock className="security-message-icon" />
+
+          <span>
+            Conexión cifrada de extremo a extremo.
+            Acceso exclusivo para organizadores autorizados.
+          </span>
+        </div>
+
+      </section>
+
+      {/* FOOTER */}
+      <footer className="login-footer">
+        <p>EventHub © 2025 • Todos los derechos reservados.</p>
+
+        <div>
+          <button type="button">Términos de servicio</button>
+          <span>•</span>
+          <button type="button">Política de privacidad</button>
+          <span>•</span>
+          <button type="button">Soporte TI</button>
+        </div>
+      </footer>
+
+    </main>
   );
 }
 
@@ -221,7 +685,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
     <form onSubmit={enviar} noValidate>
       <div className="field-header"><label htmlFor="titulo">Título del evento <span>*</span></label><small>Obligatorio</small></div>
       <input id="titulo" name="titulo" value={formulario.titulo} onChange={actualizar} placeholder="Ej. Conferencia de Tecnología 2026" aria-invalid={Boolean(errores.titulo)} autoFocus />
-      {errores.titulo && <p className="inline-error" role="alert">⊗ {errores.titulo}</p>}
+      {errores.titulo && <p className="inline-error" role="alert">X {errores.titulo}</p>}
 
       <div className="form-two-columns">
         <div>
@@ -236,7 +700,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
             aria-invalid={Boolean(errores.fecha)}
           />
           {errores.fecha ? (
-            <p className="inline-error" role="alert">⊗ {errores.fecha}</p>
+            <p className="inline-error" role="alert">X {errores.fecha}</p>
           ) : (
             <p className="helper">ⓘ La fecha debe ser hoy o una fecha futura</p>
           )}
@@ -255,7 +719,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
             placeholder="4"
             aria-invalid={Boolean(errores.horas)}
           />
-          {errores.horas && <p className="inline-error" role="alert">⊗ {errores.horas}</p>}
+          {errores.horas && <p className="inline-error" role="alert">X {errores.horas}</p>}
           {!errores.horas && <p className="helper">ⓘ Las horas deben ser entre 1 y 24</p>}
         </div>
       </div>
@@ -278,7 +742,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
 
       {errores.usuario_responsable && (
         <p className="inline-error" role="alert">
-          ⊗ {errores.usuario_responsable}
+          X {errores.usuario_responsable}
         </p>
       )}
 
@@ -294,69 +758,213 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   );
 }
 
-function CrearSubtareaForm({ eventoId, onCancelar, onCreada }) {
-  const [form, setForm] = useState({ nombre: "", horas: "", estado: "pendiente" });
+function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
+  const [form, setForm] = useState({
+    nombre: "",
+    horas: "",
+    estado: "pendiente",
+    dia_objetivo:
+      eventoFecha && eventoFecha >= obtenerFechaLocalHoy()
+        ? eventoFecha
+        : obtenerFechaLocalHoy(),
+  });
+
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [enviando, setEnviando] = useState(false);
 
   const actualizar = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    setErrores((prev) => ({ ...prev, [name]: "" }));
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    setErrores((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
+
     setErrorServidor("");
   };
 
   const enviar = async (event) => {
     event.preventDefault();
+
     const next = {};
-    if (!form.nombre.trim()) next.nombre = "El nombre de la subtarea es requerido.";
-    if (!form.horas || Number(form.horas) <= 0 || !Number.isInteger(Number(form.horas))) next.horas = "Las horas deben ser mayor a 0.";
+
+    if (!form.nombre.trim()) {
+      next.nombre = "El nombre de la subtarea es requerido.";
+    }
+
+    if (
+      !form.horas ||
+      Number(form.horas) <= 0 ||
+      !Number.isInteger(Number(form.horas))
+    ) {
+      next.horas = "Las horas deben ser mayor a 0.";
+    }
+
+    const hoy = obtenerFechaLocalHoy();
+
+    if (!form.dia_objetivo) {
+      next.dia_objetivo = "El día objetivo es requerido.";
+    } else if (form.dia_objetivo < hoy) {
+      next.dia_objetivo =
+        "El día objetivo no puede ser anterior a hoy.";
+    }
     setErrores(next);
+
     if (Object.keys(next).length) return;
 
     setEnviando(true);
+    setErrorServidor("");
+
     try {
-          await crearSubtarea({
-            evento_id: eventoId,
-            titulo: form.nombre.trim(),
-            horas_estimadas: Number(form.horas),
-            estado: form.estado,
-          });
+      await crearSubtarea({
+        evento_id: eventoId,
+        titulo: form.nombre.trim(),
+        dia_objetivo: form.dia_objetivo,
+        horas_estimadas: Number(form.horas),
+        estado: form.estado,
+      });
+
       onCreada();
     } catch (error) {
-      setErrorServidor(error.message);
+      console.error("Error al crear subtarea:", error);
+      setErrorServidor(
+        error.message || "No fue posible crear la subtarea."
+      );
       setEnviando(false);
     }
   };
 
   return (
     <form onSubmit={enviar} noValidate>
-      <div className="field-header"><label htmlFor="sub-nombre">Nombre de la subtarea <span>*</span></label></div>
-      <input id="sub-nombre" name="nombre" value={form.nombre} onChange={actualizar} placeholder="Ej. Preparar presentación" aria-invalid={Boolean(errores.nombre)} autoFocus />
-      {errores.nombre && <p className="inline-error" role="alert">⊗ {errores.nombre}</p>}
+      <div className="field-header">
+        <label htmlFor="sub-nombre">
+          Nombre de la subtarea <span>*</span>
+        </label>
+      </div>
+
+      <input
+        id="sub-nombre"
+        name="nombre"
+        value={form.nombre}
+        onChange={actualizar}
+        placeholder="Ej. Preparar presentación"
+        aria-invalid={Boolean(errores.nombre)}
+        autoFocus
+      />
+
+      {errores.nombre && (
+        <p className="inline-error" role="alert">
+          X {errores.nombre}
+        </p>
+      )}
 
       <div className="form-two-columns">
         <div>
-          <div className="field-header"><label htmlFor="sub-horas">Horas <span>*</span></label></div>
-          <input id="sub-horas" name="horas" type="number" min="1" step="1" value={form.horas} onChange={actualizar} placeholder="2" aria-invalid={Boolean(errores.horas)} />
-          {errores.horas ? <p className="inline-error" role="alert">⊗ {errores.horas}</p> : <p className="helper">ⓘ Las horas deben ser mayor a 0</p>}
+          <div className="field-header">
+            <label htmlFor="sub-horas">
+              Horas <span>*</span>
+            </label>
+          </div>
+
+          <input
+            id="sub-horas"
+            name="horas"
+            type="number"
+            min="1"
+            max="24"
+            step="1"
+            value={form.horas}
+            onChange={actualizar}
+            placeholder="2"
+            aria-invalid={Boolean(errores.horas)}
+          />
+
+          {errores.horas ? (
+            <p className="inline-error" role="alert">
+              X {errores.horas}
+            </p>
+          ) : (
+            <p className="helper">
+              ⓘ Las horas deben ser entre 1 y 24
+            </p>
+          )}
         </div>
+
         <div>
-          <div className="field-header"><label htmlFor="sub-estado">Estado</label></div>
-          <select id="sub-estado" name="estado" value={form.estado} onChange={actualizar}>
+          <div className="field-header">
+            <label htmlFor="sub-estado">Estado</label>
+          </div>
+
+          <select
+            id="sub-estado"
+            name="estado"
+            value={form.estado}
+            onChange={actualizar}
+          >
             <option value="pendiente">Pendiente</option>
             <option value="hecho">Hecho</option>
             <option value="pospuesto">Pospuesto</option>
           </select>
-          <p className="helper">Estado inicial asignado</p>
+
+          <p className="helper">
+            Estado inicial asignado
+          </p>
         </div>
       </div>
 
-      {errorServidor && <div className="alert alert-error" role="alert"><b>No fue posible crear la subtarea.</b><span>{errorServidor}</span></div>}
+      <div className="field-header">
+        <label htmlFor="sub-dia-objetivo">
+          Día objetivo <span>*</span>
+        </label>
+      </div>
+
+      <input
+        id="sub-dia-objetivo"
+        name="dia_objetivo"
+        type="date"
+        min={obtenerFechaLocalHoy()}
+        value={form.dia_objetivo}
+        onChange={actualizar}
+        aria-invalid={Boolean(errores.dia_objetivo)}
+      />
+
+      {errores.dia_objetivo && (
+        <p className="inline-error" role="alert">
+          X {errores.dia_objetivo}
+        </p>
+      )}
+
+      {errorServidor && (
+        <div className="alert alert-error" role="alert">
+          <b>No fue posible crear la subtarea.</b>
+          <span>{errorServidor}</span>
+        </div>
+      )}
+
       <div className="actions">
-        <button className="btn ghost" type="button" onClick={onCancelar} disabled={enviando}>Cancelar</button>
-        <button className="btn primary" type="submit" disabled={enviando}>{enviando && <span className="mini-spinner" />} {enviando ? "Creando…" : "Crear subtarea"}</button>
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={onCancelar}
+          disabled={enviando}
+        >
+          Cancelar
+        </button>
+
+        <button
+          className="btn primary"
+          type="submit"
+          disabled={enviando}
+        >
+          {enviando && <span className="mini-spinner" />}
+          {enviando ? "Creando…" : "Crear subtarea"}
+        </button>
       </div>
     </form>
   );
@@ -429,15 +1037,15 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
 
     const horas = Number(formulario.horas);
 
-if (
-  !formulario.horas ||
-  horas <= 0 ||
-  !Number.isInteger(horas)
-) {
-  next.horas = "Las horas deben ser mayor a 0.";
-} else if (horas > 24) {
-  next.horas = "Las horas no pueden ser mayores a 24.";
-}
+    if (
+      !formulario.horas ||
+      horas <= 0 ||
+      !Number.isInteger(horas)
+    ) {
+      next.horas = "Las horas deben ser mayor a 0.";
+    } else if (horas > 24) {
+      next.horas = "Las horas no pueden ser mayores a 24.";
+    }
 
     if (!formulario.usuario_responsable.trim()) {
       next.usuario_responsable = "El usuario responsable es requerido.";
@@ -472,7 +1080,7 @@ if (
     <form onSubmit={enviar} noValidate>
       <div className="field-header"><label htmlFor="edit-titulo">Título del evento <span>*</span></label></div>
       <input id="edit-titulo" name="titulo" value={formulario.titulo} onChange={actualizar} aria-invalid={Boolean(errores.titulo)} autoFocus />
-      {errores.titulo && <p className="inline-error" role="alert">⊗ {errores.titulo}</p>}
+      {errores.titulo && <p className="inline-error" role="alert">X {errores.titulo}</p>}
       <div className="form-two-columns">
         <div>
           <div className="field-header"><label htmlFor="edit-fecha">Fecha del evento <span>*</span></label></div>
@@ -486,7 +1094,7 @@ if (
             aria-invalid={Boolean(errores.fecha)}
           />
           {errores.fecha ? (
-            <p className="inline-error" role="alert">⊗ {errores.fecha}</p>
+            <p className="inline-error" role="alert">X {errores.fecha}</p>
           ) : (
             <p className="helper">ⓘ La fecha debe ser hoy o una fecha futura</p>
           )}
@@ -505,7 +1113,7 @@ if (
             aria-invalid={Boolean(errores.horas)}
           />
           {errores.horas ? (
-            <p className="inline-error" role="alert">⊗ {errores.horas}</p>
+            <p className="inline-error" role="alert">X {errores.horas}</p>
           ) : (
             <p className="helper">ⓘ Las horas deben ser entre 1 y 24</p>
           )}
@@ -528,7 +1136,7 @@ if (
 
       {errores.usuario_responsable && (
         <p className="inline-error" role="alert">
-          ⊗ {errores.usuario_responsable}
+          X {errores.usuario_responsable}
         </p>
       )}
       <div className="field-header"><label htmlFor="edit-descripcion">Descripción</label></div>
@@ -543,66 +1151,212 @@ if (
 }
 
 function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
-  const [form, setForm] = useState({ nombre: subtarea?.titulo ?? subtarea?.nombre ?? "", horas: subtarea?.horas_estimadas ?? subtarea?.horas ?? "", estado: normalizarEstado(subtarea?.estado) });
+  const hoy = obtenerFechaLocalHoy();
+
+  const [form, setForm] = useState({
+    nombre: subtarea?.titulo ?? subtarea?.nombre ?? "",
+    horas: subtarea?.horas_estimadas ?? subtarea?.horas ?? "",
+    estado: normalizarEstado(subtarea?.estado),
+    dia_objetivo:
+      subtarea?.dia_objetivo && subtarea.dia_objetivo >= hoy
+        ? subtarea.dia_objetivo
+        : hoy,
+  });
+
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [guardando, setGuardando] = useState(false);
+
   const actualizar = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    setErrores((prev) => ({ ...prev, [name]: "" }));
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    setErrores((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
+
     setErrorServidor("");
   };
+
   const enviar = async (event) => {
     event.preventDefault();
+
     const next = {};
-    if (!form.nombre.trim()) next.nombre = "El nombre de la subtarea es requerido.";
-    if (!form.horas || Number(form.horas) <= 0 || !Number.isInteger(Number(form.horas))) next.horas = "Las horas deben ser mayor a 0.";
+
+    if (!form.nombre.trim()) {
+      next.nombre = "El nombre de la subtarea es requerido.";
+    }
+
+    if (
+      !form.horas ||
+      Number(form.horas) <= 0 ||
+      !Number.isInteger(Number(form.horas))
+    ) {
+      next.horas = "Las horas deben ser mayor a 0.";
+    }
+    const hoy = obtenerFechaLocalHoy();
+
+    if (!form.dia_objetivo) {
+      next.dia_objetivo = "El día objetivo es requerido.";
+    } else if (form.dia_objetivo < hoy) {
+      next.dia_objetivo =
+        "El día objetivo no puede ser anterior a hoy.";
+    }
     setErrores(next);
-    if (Object.keys(next).length) return;
+
+    if (Object.keys(next).length) {
+      return;
+    }
+
     setGuardando(true);
+    setErrorServidor("");
+
     try {
-          await actualizarSubtarea(subtarea.id, {
-            evento_id: eventoId,
-            titulo: form.nombre.trim(),
-            horas_estimadas: Number(form.horas),
-            estado: form.estado,
-          });
+      await actualizarSubtarea(subtarea.id, {
+        evento_id: eventoId,
+        titulo: form.nombre.trim(),
+        dia_objetivo: form.dia_objetivo,
+        horas_estimadas: Number(form.horas),
+        estado: form.estado,
+      });
+
       onGuardado();
     } catch (error) {
-      setErrorServidor(error.message);
+      console.error("Error al actualizar subtarea:", error);
+
+      setErrorServidor(
+        error?.message || "No fue posible actualizar la subtarea."
+      );
+
       setGuardando(false);
     }
   };
+
   return (
     <form onSubmit={enviar} noValidate>
-      <div className="field-header"><label htmlFor="edit-sub-nombre">Nombre de la subtarea <span>*</span></label></div>
-      <input id="edit-sub-nombre" name="nombre" value={form.nombre} onChange={actualizar} aria-invalid={Boolean(errores.nombre)} autoFocus />
-      {errores.nombre && <p className="inline-error" role="alert">⊗ {errores.nombre}</p>}
+      <div className="field-header">
+        <label htmlFor="edit-sub-nombre">
+          Nombre de la subtarea <span>*</span>
+        </label>
+      </div>
+
+      <input
+        id="edit-sub-nombre"
+        name="nombre"
+        value={form.nombre}
+        onChange={actualizar}
+        aria-invalid={Boolean(errores.nombre)}
+        autoFocus
+      />
+
+      {errores.nombre && (
+        <p className="inline-error" role="alert">
+          X {errores.nombre}
+        </p>
+      )}
+
       <div className="form-two-columns">
         <div>
-          <div className="field-header"><label htmlFor="edit-sub-horas">Horas <span>*</span></label></div>
-          <input id="edit-sub-horas" name="horas" type="number" min="1" step="1" value={form.horas} onChange={actualizar} aria-invalid={Boolean(errores.horas)} />
-          {errores.horas && <p className="inline-error" role="alert">⊗ {errores.horas}</p>}
+          <div className="field-header">
+            <label htmlFor="edit-sub-horas">
+              Horas <span>*</span>
+            </label>
+          </div>
+
+          <input
+            id="edit-sub-horas"
+            name="horas"
+            type="number"
+            min="1"
+            step="1"
+            value={form.horas}
+            onChange={actualizar}
+            aria-invalid={Boolean(errores.horas)}
+          />
+
+          {errores.horas && (
+            <p className="inline-error" role="alert">
+              X {errores.horas}
+            </p>
+          )}
         </div>
+
         <div>
-          <div className="field-header"><label htmlFor="edit-sub-estado">Estado</label></div>
-          <select id="edit-sub-estado" name="estado" value={form.estado} onChange={actualizar}>
+          <div className="field-header">
+            <label htmlFor="edit-sub-estado">
+              Estado
+            </label>
+          </div>
+
+          <select
+            id="edit-sub-estado"
+            name="estado"
+            value={form.estado}
+            onChange={actualizar}
+          >
             <option value="pendiente">Pendiente</option>
             <option value="hecho">Hecho</option>
             <option value="pospuesto">Pospuesto</option>
           </select>
         </div>
       </div>
-      {errorServidor && <div className="alert alert-error" role="alert"><b>No fue posible actualizar la subtarea.</b><span>{errorServidor}</span></div>}
+
+      <div className="field-header">
+        <label htmlFor="edit-sub-dia-objetivo">
+          Día objetivo <span>*</span>
+        </label>
+      </div>
+
+      <input
+        id="edit-sub-dia-objetivo"
+        name="dia_objetivo"
+        type="date"
+        min={obtenerFechaLocalHoy()}
+        value={form.dia_objetivo}
+        onChange={actualizar}
+        aria-invalid={Boolean(errores.dia_objetivo)}
+      />
+
+      {errores.dia_objetivo && (
+        <p className="inline-error" role="alert">
+          X {errores.dia_objetivo}
+        </p>
+      )}
+
+      {errorServidor && (
+        <div className="alert alert-error" role="alert">
+          <b>No fue posible actualizar la subtarea.</b>
+          <span>{errorServidor}</span>
+        </div>
+      )}
+
       <div className="actions">
-        <button className="btn ghost" type="button" onClick={onCancelar} disabled={guardando}>Cancelar</button>
-        <button className="btn primary" type="submit" disabled={guardando}>{guardando && <span className="mini-spinner" />}{guardando ? "Guardando…" : "Guardar cambios"}</button>
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={onCancelar}
+          disabled={guardando}
+        >
+          Cancelar
+        </button>
+
+        <button
+          className="btn primary"
+          type="submit"
+          disabled={guardando}
+        >
+          {guardando && <span className="mini-spinner" />}
+          {guardando ? "Guardando…" : "Guardar cambios"}
+        </button>
       </div>
     </form>
   );
 }
-
 function Eventos({ eventos, cargando, error, recargar, crear }) {
   return (
     <section className="page">
@@ -655,9 +1409,9 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
   const porcentaje = subtareas.length ? Math.round((completadas / subtareas.length) * 100) : 0;
   const responsable = evento?.usuario_responsable;
   const responsableTexto =
-  typeof responsable === "object"
-    ? responsable?.nombre
-    : responsable;
+    typeof responsable === "object"
+      ? responsable?.nombre
+      : responsable;
 
   const eventoActualizado = async () => {
     setModal(null); await cargar(); onEventosChanged?.(); onNotify("Evento actualizado correctamente");
@@ -710,7 +1464,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
 
       <div className="subtasks-heading"><div><h2>Subtareas</h2><p>Organiza las tareas necesarias para completar este evento.</p></div><button className="btn primary" onClick={() => setModal("create-subtask")}>＋ Nueva subtarea</button></div>
       <section className="subtask-section card">
-        <div className="section-tabs"><span className="tab active">Con subtareas ({subtareas.length})</span><span className="tab">Estado Vacío</span><span className="tab">Estado de Carga</span><span className="tab">Estado de Error</span></div>
+        <div className="section-tabs"><span className="tab active">Con subtareas ({subtareas.length})</span></div>
         {estadoSubtareas === "loading" && <div className="state-inside"><span className="spinner" /> Cargando subtareas...</div>}
         {estadoSubtareas === "error" && <div className="state-inside error-inside" role="alert"><div><b>Error cargando las subtareas</b><p>{errorSubtareas}</p></div><button className="btn ghost" onClick={cargarSubtareas}>Reintentar</button></div>}
         {estadoSubtareas === "empty" && <div className="empty-subtasks"><div className="empty-icon">✦</div><h3>Aún no hay subtareas</h3><p>Agrega una subtarea para organizar este evento.</p><button className="btn primary" onClick={() => setModal("create-subtask")}>＋ Nueva subtarea</button></div>}
@@ -730,7 +1484,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
 
       <section className="progress-card card"><div className="progress-icon">✓</div><div><h2>Progreso global de subtareas</h2><p>{completadas} de {subtareas.length} completadas ({porcentaje}%) • {horasRegistradas} horas totales registradas</p></div><strong>{porcentaje}%</strong><div className="progress-track"><span style={{ width: `${porcentaje}%` }} /></div></section>
 
-      {modal === "create-subtask" && <Modal title="Crear subtarea" subtitle="Agrega una nueva tarea para este evento." close={() => setModal(null)}><CrearSubtareaForm eventoId={id} onCancelar={() => setModal(null)} onCreada={async () => { setModal(null); onNotify("Subtarea creada correctamente"); await cargarSubtareas(); }} /></Modal>}
+      {modal === "create-subtask" && <Modal title="Crear subtarea" subtitle="Agrega una nueva tarea para este evento." close={() => setModal(null)}><CrearSubtareaForm eventoId={id} eventoFecha={evento.fecha} onCancelar={() => setModal(null)} onCreada={async () => { setModal(null); onNotify("Subtarea creada correctamente"); await cargarSubtareas(); }} /></Modal>}
       {modal === "edit-event" && <Modal title="Editar evento" subtitle="Actualiza la información del evento." close={() => setModal(null)} wide><EditarEventoForm evento={evento} onCancelar={() => setModal(null)} onGuardado={eventoActualizado} /></Modal>}
       {modal?.type === "edit-subtask" && <Modal title="Editar subtarea" subtitle="Actualiza la información de la subtarea." close={() => setModal(null)}><EditarSubtareaForm subtarea={modal.item} eventoId={id} onCancelar={() => setModal(null)} onGuardado={subtareaActualizada} /></Modal>}
       {confirmacion?.type === "evento" && <ConfirmModal title="¿Eliminar evento?" message="Esta acción eliminará el evento y sus subtareas. No se puede deshacer." close={() => setConfirmacion(null)} onConfirm={ejecutarEliminacion} loading={eliminando} />}
@@ -837,9 +1591,8 @@ function CrearEventoPage({ onCancelar, onCrear }) {
 
             return (
               <div
-                className={`register-step ${
-                  completado ? "done" : actual ? "current" : ""
-                }`}
+                className={`register-step ${completado ? "done" : actual ? "current" : ""
+                  }`}
                 key={paso.titulo}
               >
                 <span className="step-dot">
@@ -875,6 +1628,187 @@ function CrearEventoPage({ onCancelar, onCrear }) {
   );
 }
 
+function ConfiguracionUsuario({ onNotify }) {
+  const [horasDia, setHorasDia] = useState(6);
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
+  const [errorCampo, setErrorCampo] = useState("");
+
+  useEffect(() => {
+    const cargarConfiguracion = async () => {
+      setCargando(true);
+      setError("");
+
+      try {
+        const data = await obtenerConfiguracionUsuario();
+
+        setHorasDia(
+          Number.isInteger(Number(data?.horas_dia))
+            ? Number(data.horas_dia)
+            : 6
+        );
+      } catch (errorActual) {
+        setError(
+          errorActual.message ||
+          "No fue posible cargar la configuración del usuario."
+        );
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    cargarConfiguracion();
+  }, []);
+
+  const cambiarHoras = (event) => {
+    const value = event.target.value;
+
+    setHorasDia(value);
+    setErrorCampo("");
+  };
+
+  const validar = () => {
+    const horas = Number(horasDia);
+
+    if (
+      horasDia === "" ||
+      !Number.isInteger(horas) ||
+      horas < 1 ||
+      horas > 16
+    ) {
+      return "Las horas por día deben ser un número entero entre 1 y 16.";
+    }
+
+    return "";
+  };
+
+  const guardar = async (event) => {
+    event.preventDefault();
+
+    const errorValidacion = validar();
+
+    if (errorValidacion) {
+      setErrorCampo(errorValidacion);
+      return;
+    }
+
+    setGuardando(true);
+    setError("");
+    setErrorCampo("");
+
+    try {
+      const data = await actualizarConfiguracionUsuario(Number(horasDia));
+
+      setHorasDia(Number(data.horas_dia));
+
+      onNotify("Configuración guardada correctamente.");
+    } catch (errorActual) {
+      setError(
+        errorActual.message ||
+        "No fue posible guardar la configuración. Inténtalo de nuevo."
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <section className="page configuration-page">
+      <div className="configuration-header">
+        <div>
+          <small>CONFIGURACIÓN DEL ORGANIZADOR</small>
+          <h1>Disponibilidad</h1>
+          <p>
+            Define cuántas horas al día tienes disponibles para gestionar tus
+            eventos.
+          </p>
+        </div>
+      </div>
+
+      {cargando ? (
+        <section className="card state-card">
+          <span className="spinner" />
+          Consultando tu configuración...
+        </section>
+      ) : error ? (
+        <section className="card state-card error-state" role="alert">
+          <div>
+            <b>No se pudo cargar la configuración.</b>
+            <p>{error}</p>
+          </div>
+        </section>
+      ) : (
+        <section className="card configuration-card">
+          <div className="configuration-card-header">
+            <div>
+              <h2>Límite diario de gestión</h2>
+              <p>
+                El sistema utilizará este límite para detectar sobrecarga en
+                tu planificación diaria.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={guardar} noValidate>
+            <div className="configuration-field">
+              <label htmlFor="horas-dia">
+                Horas disponibles por día <span>*</span>
+              </label>
+
+              <input
+                id="horas-dia"
+                name="horas-dia"
+                type="number"
+                min="1"
+                max="16"
+                step="1"
+                value={horasDia}
+                onChange={cambiarHoras}
+                aria-invalid={Boolean(errorCampo)}
+                aria-describedby="horas-dia-ayuda horas-dia-error"
+              />
+
+              <small id="horas-dia-ayuda">
+                Introduce un número entero entre 1 y 16 horas.
+              </small>
+
+              {errorCampo && (
+                <p
+                  id="horas-dia-error"
+                  className="inline-error"
+                  role="alert"
+                >
+                  X {errorCampo}
+                </p>
+              )}
+            </div>
+
+            <div className="configuration-actions">
+              <button
+                className="btn primary"
+                type="submit"
+                disabled={guardando}
+              >
+                {guardando ? "Guardando..." : "Guardar configuración"}
+              </button>
+
+              <button
+                className="btn secondary"
+                type="button"
+                disabled={guardando}
+                onClick={() => navegar("/eventos")}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
+    </section>
+  );
+}
+
 function obtenerFechaLocalHoy() {
   const hoy = new Date();
   const year = hoy.getFullYear();
@@ -885,10 +1819,22 @@ function obtenerFechaLocalHoy() {
 
 function Today({ onNotify }) {
   const [tareas, setTareas] = useState([]);
+  const [gestionesVencidas, setGestionesVencidas] = useState([]);
+  const [proximasGestiones, setProximasGestiones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [actualizando, setActualizando] = useState(null);
   const [seleccionada, setSeleccionada] = useState(null);
+  const [capacidadDiaria, setCapacidadDiaria] = useState(6);
+  const [filtroBusqueda, setFiltroBusqueda] = useState("");
+  const [filtroEvento, setFiltroEvento] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("");
+
+  const [tareaPosponer, setTareaPosponer] = useState(null);
+  const [nuevaFecha, setNuevaFecha] = useState("");
+  const [motivoPosposicion, setMotivoPosposicion] = useState("");
+  const [guardandoPosposicion, setGuardandoPosposicion] = useState(false);
+
 
   const cargarHoy = async () => {
     setCargando(true);
@@ -900,24 +1846,51 @@ function Today({ onNotify }) {
         obtenerSubtareas(),
       ]);
 
-      const listaEventos = Array.isArray(eventosData) ? eventosData : [];
-      const listaSubtareas = Array.isArray(subtareasData) ? subtareasData : [];
+      let configuracionData = null;
+
+      try {
+        configuracionData = await obtenerConfiguracionUsuario();
+      } catch {
+        configuracionData = {
+          horas_dia: 6,
+        };
+      }
+
+      const listaEventos = Array.isArray(eventosData)
+        ? eventosData
+        : [];
+
+      const listaSubtareas = Array.isArray(subtareasData)
+        ? subtareasData
+        : [];
+
+      const horasConfiguradas = Number(configuracionData?.horas_dia);
+
+      if (
+        Number.isInteger(horasConfiguradas) &&
+        horasConfiguradas > 0
+      ) {
+        setCapacidadDiaria(horasConfiguradas);
+      } else {
+        setCapacidadDiaria(6);
+      }
       const eventosPorId = new Map(
         listaEventos.map((evento) => [String(evento.id), evento])
       );
 
       const hoy = obtenerFechaLocalHoy();
 
-      const tareasDeHoy = listaSubtareas
-        .map((subtarea) => {
-          const evento = eventosPorId.get(String(subtarea.evento_id));
+      const subtareasPreparadas = listaSubtareas.map((subtarea) => {
+        const evento = eventosPorId.get(String(subtarea.evento_id));
 
-          return {
-            ...subtarea,
-            evento,
-            fechaObjetivo: subtarea.dia_objetivo || evento?.fecha || null,
-          };
-        })
+        return {
+          ...subtarea,
+          evento,
+          fechaObjetivo: subtarea.dia_objetivo || evento?.fecha || null,
+        };
+      });
+
+      const tareasDeHoy = subtareasPreparadas
         .filter(
           (subtarea) =>
             String(subtarea.fechaObjetivo || "").slice(0, 10) === hoy
@@ -936,6 +1909,45 @@ function Today({ onNotify }) {
         });
 
       setTareas(tareasDeHoy);
+      const vencidas = subtareasPreparadas
+        .filter((subtarea) => {
+          const fecha = String(subtarea.fechaObjetivo || "").slice(0, 10);
+          const estado = normalizarEstado(subtarea.estado);
+
+          return (
+            fecha &&
+            fecha < hoy &&
+            estado !== "hecho"
+          );
+        })
+        .sort((a, b) => {
+          const fechaA = String(a.fechaObjetivo || "").slice(0, 10);
+          const fechaB = String(b.fechaObjetivo || "").slice(0, 10);
+
+          return fechaA.localeCompare(fechaB);
+        });
+
+      setGestionesVencidas(vencidas);
+      const proximas = subtareasPreparadas
+        .filter((subtarea) => {
+          const fecha = String(subtarea.fechaObjetivo || "").slice(0, 10);
+          const estado = normalizarEstado(subtarea.estado);
+
+          return (
+            fecha &&
+            fecha > hoy &&
+            estado !== "hecho"
+          );
+        })
+        .sort((a, b) => {
+          const fechaA = String(a.fechaObjetivo || "").slice(0, 10);
+          const fechaB = String(b.fechaObjetivo || "").slice(0, 10);
+
+          return fechaA.localeCompare(fechaB);
+        })
+        .slice(0, 8);
+
+      setProximasGestiones(proximas);
 
       if (
         seleccionada &&
@@ -955,9 +1967,44 @@ function Today({ onNotify }) {
   useEffect(() => {
     cargarHoy();
   }, []);
+  const abrirModalPosponer = (tarea) => {
+    setTareaPosponer(tarea);
+    setNuevaFecha("");
+    setMotivoPosposicion("");
+  };
+  const confirmarPosposicion = async () => {
+    if (!tareaPosponer || !nuevaFecha) {
+      return;
+    }
 
+    setGuardandoPosposicion(true);
+
+    try {
+      await actualizarParcialSubtarea(tareaPosponer.id, {
+        estado: "pospuesto",
+        dia_objetivo: nuevaFecha,
+        motivo_posposicion: motivoPosposicion.trim() || null,
+      });
+
+      setTareaPosponer(null);
+      setNuevaFecha("");
+      setMotivoPosposicion("");
+
+      await cargarHoy();
+
+      onNotify("Se reprogramó con éxito.");
+    } catch (errorActual) {
+      onNotify(
+        errorActual.message || "No fue posible reprogramar la subtarea.",
+        "error"
+      );
+    } finally {
+      setGuardandoPosposicion(false);
+    }
+  };
   const cambiarEstado = async (tarea, nuevoEstado = null) => {
     const estadoActual = normalizarEstado(tarea.estado);
+
     const estadoNuevo =
       nuevoEstado ||
       (estadoActual === "hecho" ? "pendiente" : "hecho");
@@ -965,10 +2012,7 @@ function Today({ onNotify }) {
     setActualizando(tarea.id);
 
     try {
-      await actualizarSubtarea(tarea.id, {
-        evento_id: tarea.evento_id,
-        titulo: obtenerTituloSubtarea(tarea),
-        horas_estimadas: obtenerHoras(tarea),
+      await actualizarParcialSubtarea(tarea.id, {
         estado: estadoNuevo,
       });
 
@@ -984,8 +2028,8 @@ function Today({ onNotify }) {
         estadoNuevo === "hecho"
           ? "Subtarea marcada como hecha."
           : estadoNuevo === "pospuesto"
-          ? "Subtarea pospuesta correctamente."
-          : "Subtarea marcada como pendiente."
+            ? "Subtarea pospuesta correctamente."
+            : "Subtarea marcada como pendiente."
       );
     } catch (errorActual) {
       onNotify(
@@ -996,6 +2040,61 @@ function Today({ onNotify }) {
       setActualizando(null);
     }
   };
+  const eventosFiltro = Array.from(
+    new Map(
+      [...tareas, ...gestionesVencidas, ...proximasGestiones]
+        .filter((tarea) => tarea.evento?.id)
+        .map((tarea) => [
+          String(tarea.evento.id),
+          tarea.evento,
+        ])
+    ).values()
+  );
+  const aplicarFiltros = (lista) => {
+    const busqueda = filtroBusqueda.trim().toLowerCase();
+
+    return lista.filter((tarea) => {
+      const estado = normalizarEstado(tarea.estado);
+      const eventoId = String(tarea.evento?.id || "");
+
+      const coincideEvento =
+        !filtroEvento || eventoId === String(filtroEvento);
+
+      const coincideEstado =
+        !filtroEstado || estado === filtroEstado;
+
+      const coincideBusqueda =
+        !busqueda ||
+        obtenerTituloSubtarea(tarea).toLowerCase().includes(busqueda) ||
+        (tarea.evento?.titulo || "").toLowerCase().includes(busqueda) ||
+        String(tarea.responsable || "").toLowerCase().includes(busqueda);
+
+      return (
+        coincideEvento &&
+        coincideEstado &&
+        coincideBusqueda
+      );
+    });
+  };
+  const tareasFiltradas = aplicarFiltros(tareas);
+  const gestionesVencidasFiltradas = aplicarFiltros(gestionesVencidas);
+  const proximasGestionesFiltradas = aplicarFiltros(proximasGestiones);
+  const pendientesFiltradas = tareasFiltradas.filter(
+    (tarea) => normalizarEstado(tarea.estado) === "pendiente"
+  );
+
+  const pospuestasFiltradas = tareasFiltradas.filter(
+    (tarea) => normalizarEstado(tarea.estado) === "pospuesto"
+  );
+
+  const completadasFiltradas = tareasFiltradas.filter(
+    (tarea) => normalizarEstado(tarea.estado) === "hecho"
+  );
+
+  const urgentesFiltradas = [
+    ...pospuestasFiltradas,
+    ...pendientesFiltradas,
+  ];
 
   const pendientes = tareas.filter(
     (tarea) => normalizarEstado(tarea.estado) === "pendiente"
@@ -1021,7 +2120,6 @@ function Today({ onNotify }) {
     0
   );
 
-  const capacidadDiaria = 6;
   const porcentajeCapacidad = Math.min(
     Math.round((horasPendientes / capacidadDiaria) * 100),
     100
@@ -1039,9 +2137,8 @@ function Today({ onNotify }) {
 
     return (
       <article
-        className={`today-task-card ${urgente ? "urgent-task" : ""} ${
-          hecha ? "done-task" : ""
-        } ${seleccionadaActual ? "selected-task" : ""}`}
+        className={`today-task-card ${urgente ? "urgent-task" : ""} ${hecha ? "done-task" : ""
+          } ${seleccionadaActual ? "selected-task" : ""}`}
         key={tarea.id}
         onClick={() => setSeleccionada(tarea)}
       >
@@ -1064,21 +2161,32 @@ function Today({ onNotify }) {
           {urgente && !hecha && (
             <div className="today-urgent-message">
               <strong>⚠ Atención inmediata</strong>
-              <span>
-                Esta gestión todavía requiere atención durante el día de hoy.
-              </span>
             </div>
           )}
 
           <div className="today-task-meta">
             <span>
               📅{" "}
-              {tarea.dia_objetivo
-                ? "Plazo: Hoy"
-                : tarea.evento?.fecha
-                ? "Evento programado para hoy"
-                : "Sin fecha específica"}
+              {estado === "pospuesto" && tarea.dia_objetivo
+                ? `Fecha reprogramada: ${new Intl.DateTimeFormat("es-CO", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                }).format(
+                  new Date(`${tarea.dia_objetivo}T00:00:00`)
+                )}`
+                : tarea.dia_objetivo
+                  ? "Plazo: Hoy"
+                  : tarea.evento?.fecha
+                    ? "Evento programado para hoy"
+                    : "Sin fecha específica"}
             </span>
+
+            {estado === "pospuesto" && tarea.motivo_posposicion && (
+              <span>
+                Razón: "{tarea.motivo_posposicion}"
+              </span>
+            )}
           </div>
         </div>
 
@@ -1103,9 +2211,9 @@ function Today({ onNotify }) {
                 className="today-action-secondary"
                 type="button"
                 disabled={actualizando === tarea.id}
-                onClick={() => cambiarEstado(tarea, "pospuesto")}
+                onClick={() => abrirModalPosponer(tarea)}
               >
-                Posponer
+                Reprogramar
               </button>
             </>
           ) : (
@@ -1128,12 +2236,25 @@ function Today({ onNotify }) {
               year: "numeric",
             }).format(new Date())}
           </small>
-          <h1>Hoy</h1>
+          <div className="today-title-row">
+            <h1>Hoy</h1>
+
+            <button
+              className="today-refresh-button"
+              type="button"
+              onClick={cargarHoy}
+              disabled={cargando}
+              aria-label="Actualizar vista"
+              title="Actualizar vista"
+            >
+              <FaSyncAlt aria-hidden="true" />
+            </button>
+          </div>
           <p>Prioriza lo importante y conserva el ritmo.</p>
         </div>
 
         <div className="today-capacity">
-          <span>Capacidad del día</span>
+          <span>Capacidad del día </span>
           <strong>
             {horasPendientes}h / {capacidadDiaria}h
           </strong>
@@ -1164,7 +2285,7 @@ function Today({ onNotify }) {
           <span className="today-summary-icon">!</span>
           <div>
             <small>PENDIENTES</small>
-            <strong>{urgentes.length}</strong>
+            <strong>{urgentesFiltradas.length}</strong>
             <span>Requieren atención</span>
           </div>
         </article>
@@ -1173,7 +2294,7 @@ function Today({ onNotify }) {
           <span className="today-summary-icon">✓</span>
           <div>
             <small>REALIZADAS</small>
-            <strong>{completadas.length}</strong>
+            <strong>{completadasFiltradas.length}</strong>
             <span>Completadas hoy</span>
           </div>
         </article>
@@ -1186,6 +2307,67 @@ function Today({ onNotify }) {
             <span>Horas de trabajo</span>
           </div>
         </article>
+      </div>
+      <div className="today-filters">
+
+        <div className="today-filter-search">
+          <span>⌕</span>
+
+          <input
+            type="search"
+            placeholder="Buscar por evento, tarea o responsable..."
+            value={filtroBusqueda}
+            onChange={(event) => setFiltroBusqueda(event.target.value)}
+          />
+        </div>
+
+        <div className="today-filter-select">
+          <span>▣</span>
+
+          <select
+            value={filtroEvento}
+            onChange={(event) => setFiltroEvento(event.target.value)}
+          >
+            <option value="">
+              Todos los eventos ({eventosFiltro.length})
+            </option>
+
+            {eventosFiltro.map((evento) => (
+              <option key={evento.id} value={evento.id}>
+                {evento.titulo}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="today-filter-select">
+          <span>☷</span>
+
+          <select
+            value={filtroEstado}
+            onChange={(event) => setFiltroEstado(event.target.value)}
+          >
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="pospuesto">Pospuesto</option>
+            <option value="hecho">Hecho</option>
+          </select>
+        </div>
+
+        <button
+          type="button"
+          className="today-filter-reset"
+          aria-label="Limpiar filtros"
+          title="Limpiar filtros"
+          onClick={() => {
+            setFiltroBusqueda("");
+            setFiltroEvento("");
+            setFiltroEstado("");
+          }}
+        >
+          <span className="reset-icon">↻</span>
+        </button>
+
       </div>
 
       <div className="today-layout">
@@ -1217,45 +2399,176 @@ function Today({ onNotify }) {
             </section>
           )}
 
-          {!cargando && !error && tareas.length === 0 && (
+          {!cargando && !error && tareasFiltradas.length === 0 && gestionesVencidasFiltradas.length === 0 && (
             <section className="card today-no-tasks">
-              <div className="empty-icon">✓</div>
-              <h2>No hay gestiones para hoy</h2>
+              <div className="empty-icon">⌕</div>
+
+              <h2>
+                {filtroBusqueda || filtroEvento || filtroEstado
+                  ? "No hay resultados"
+                  : "No hay gestiones para hoy"}
+              </h2>
+
               <p>
-                No encontramos subtareas cuya fecha objetivo o evento
-                corresponda a hoy.
+                {filtroBusqueda || filtroEvento || filtroEstado
+                  ? "No encontramos gestiones para hoy que coincidan con los filtros seleccionados."
+                  : "No encontramos subtareas cuya fecha objetivo o evento corresponda a hoy."}
               </p>
-              <button
-                className="btn primary"
-                type="button"
-                onClick={() => navegar("/eventos")}
-              >
-                Ver eventos
-              </button>
+
+              {(filtroBusqueda || filtroEvento || filtroEstado) && (
+                <button
+                  className="btn secondary"
+                  type="button"
+                  onClick={() => {
+                    setFiltroBusqueda("");
+                    setFiltroEvento("");
+                    setFiltroEstado("");
+                  }}
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </section>
+          )}
+          {!cargando && !error && gestionesVencidasFiltradas.length > 0 && (
+            <section className="today-overdue-section">
+
+              <div className="today-overdue-header">
+                <div>
+                  <h2>Gestiones Vencidas</h2>
+
+                  <p className="today-overdue-risk">
+                    ⚠ Riesgo operativo acumulado
+                  </p>
+                </div>
+
+                <span className="today-overdue-count">
+                  {gestionesVencidasFiltradas.length}
+                </span>
+              </div>
+
+              <div className="today-overdue-grid">
+                {gestionesVencidasFiltradas.map((tarea) => {
+                  const fecha = String(
+                    tarea.fechaObjetivo || ""
+                  ).slice(0, 10);
+
+                  const fechaVencida = new Date(`${fecha}T00:00:00`);
+                  const fechaHoy = new Date(
+                    `${obtenerFechaLocalHoy()}T00:00:00`
+                  );
+
+                  const diasVencidos = Math.max(
+                    1,
+                    Math.round(
+                      (fechaHoy - fechaVencida) /
+                      (1000 * 60 * 60 * 24)
+                    )
+                  );
+
+                  return (
+                    <article
+                      className="today-overdue-card"
+                      key={tarea.id}
+                      onClick={() => setSeleccionada(tarea)}
+                    >
+                      <div className="today-overdue-main">
+
+                        {/* PARTE SUPERIOR */}
+                        <div className="today-overdue-top">
+
+                          <span className="today-event-pill">
+                            Evento: {tarea.evento?.titulo || "Evento sin título"}
+                          </span>
+
+                          <span className="today-overdue-badge">
+                            ⚠ Retraso: {diasVencidos}{" "}
+                            {diasVencidos === 1 ? "día" : "días"}
+                          </span>
+
+                          <span className="today-hours">
+                            {obtenerHoras(tarea)}h
+                          </span>
+
+                        </div>
+
+                        {/* TÍTULO */}
+                        <h3>
+                          {obtenerTituloSubtarea(tarea)}
+                        </h3>
+
+                        {/* DESCRIPCIÓN */}
+                        {tarea.evento?.descripcion && (
+                          <p className="today-overdue-description">
+                            {tarea.evento.descripcion}
+                          </p>
+                        )}
+
+                        {/* FECHA EN QUE VENCÍA */}
+                        <div className="today-overdue-meta">
+                          <span>
+                            📅 Vencía: {fecha.split("-").reverse().join("/")}
+                          </span>
+                        </div>
+
+                      </div>
+
+                      {/* ACCIONES */}
+                      <div
+                        className="today-overdue-actions"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+
+                        <button
+                          type="button"
+                          className="today-overdue-resolve"
+                          disabled={actualizando === tarea.id}
+                          onClick={() => cambiarEstado(tarea, "hecho")}
+                        >
+                          {actualizando === tarea.id
+                            ? "Guardando..."
+                            : "✓ Resolver ahora"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="today-overdue-reprogram"
+                          disabled={actualizando === tarea.id}
+                          onClick={() => abrirModalPosponer(tarea)}
+                        >
+                          Reprogramar
+                        </button>
+
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             </section>
           )}
 
-          {!cargando && !error && tareas.length > 0 && (
+          {!cargando && !error && tareasFiltradas.length > 0 && (
             <>
               <section className="today-section">
                 <div className="today-section-title">
                   <div>
                     <h2>Gestiones urgentes</h2>
-                    <span>Atención inmediata</span>
+                    <p>Requiere todavía atención el día de hoy.</p>
                   </div>
 
                   <span className="today-count urgent-count">
-                    {urgentes.length}
+                    {urgentesFiltradas.length}
                   </span>
                 </div>
 
                 {urgentes.length === 0 ? (
                   <div className="today-empty">
-                    <span>✓</span>
-                    <p>No tienes gestiones urgentes.</p>
+                    <div className="today-empty-icon">✓</div>
+                    <h3>Todo está al día</h3>
+                    <p>No tienes gestiones urgentes pendientes para hoy.</p>
                   </div>
                 ) : (
-                  urgentes.map((tarea) => renderTarea(tarea, true))
+                  urgentesFiltradas.map((tarea) => renderTarea(tarea, true))
                 )}
               </section>
 
@@ -1263,11 +2576,10 @@ function Today({ onNotify }) {
                 <div className="today-section-title">
                   <div>
                     <h2>Gestiones realizadas hoy</h2>
-                    <span>Historial del día</span>
                   </div>
 
                   <span className="today-count done-count">
-                    {completadas.length}
+                    {completadasFiltradas.length}
                   </span>
                 </div>
 
@@ -1277,7 +2589,7 @@ function Today({ onNotify }) {
                     <p>Aún no has completado gestiones hoy.</p>
                   </div>
                 ) : (
-                  completadas.map((tarea) => renderTarea(tarea))
+                  completadasFiltradas.map((tarea) => renderTarea(tarea))
                 )}
               </section>
             </>
@@ -1301,17 +2613,17 @@ function Today({ onNotify }) {
               </p>
 
               <div className="today-panel-info">
-                <span>Horas estimadas</span>
+                <span>Horas estimadas: </span>
                 <strong>{obtenerHoras(seleccionada)}h</strong>
               </div>
 
               <div className="today-panel-info">
-                <span>Estado</span>
+                <span>Estado: </span>
                 <strong>{etiquetaEstado(seleccionada.estado)}</strong>
               </div>
 
               <div className="today-panel-info">
-                <span>Fecha</span>
+                <span>Fecha: </span>
                 <strong>
                   {seleccionada.dia_objetivo
                     ? formatearFecha(seleccionada.dia_objetivo)
@@ -1336,11 +2648,9 @@ function Today({ onNotify }) {
                     className="today-panel-secondary"
                     type="button"
                     disabled={actualizando === seleccionada.id}
-                    onClick={() =>
-                      cambiarEstado(seleccionada, "pospuesto")
-                    }
+                    onClick={() => abrirModalPosponer(seleccionada)}
                   >
-                    Posponer gestión
+                    Reprogramar gestión
                   </button>
                 </>
               ) : (
@@ -1369,24 +2679,810 @@ function Today({ onNotify }) {
           )}
         </aside>
       </div>
+      <section className="today-upcoming-section">
+        <div className="today-upcoming-header">
+          <div>
+            <h2>Próximas gestiones</h2>
+            <p>Ten presentes las gestiones programadas para los próximos días.</p>
+          </div>
 
-      <div className="today-refresh-row">
-        <button
-          className="btn secondary"
-          type="button"
-          onClick={cargarHoy}
-          disabled={cargando}
-        >
-          ↻ Actualizar vista
-        </button>
-      </div>
+          <span className="today-upcoming-count">
+            {proximasGestiones.length}
+          </span>
+        </div>
+
+        {proximasGestiones.length === 0 ? (
+          <div className="today-upcoming-empty">
+            <span>✓</span>
+            <p>No tienes próximas gestiones programadas.</p>
+          </div>
+        ) : (
+          <div className="today-upcoming-list">
+            {proximasGestiones.map((tarea) => {
+              const fecha = String(tarea.fechaObjetivo || "").slice(0, 10);
+
+              const fechaTarea = new Date(`${fecha}T00:00:00`);
+              const fechaHoy = new Date(
+                `${obtenerFechaLocalHoy()}T00:00:00`
+              );
+
+              const diferenciaDias = Math.round(
+                (fechaTarea - fechaHoy) / (1000 * 60 * 60 * 24)
+              );
+
+              return (
+                <article
+                  className="today-upcoming-card"
+                  key={tarea.id}
+                  onClick={() => setSeleccionada(tarea)}
+                >
+                  <div className="today-upcoming-days">
+                    <strong>+{diferenciaDias}</strong>
+                    <span>día{diferenciaDias !== 1 ? "s" : ""}</span>
+                  </div>
+
+                  <div className="today-upcoming-main">
+                    <h3>{obtenerTituloSubtarea(tarea)}</h3>
+
+                    <div className="today-upcoming-meta">
+                      <span>
+                        📅{" "}
+                        {tarea.evento?.titulo || "Evento sin título"}
+                      </span>
+
+                      <span>•</span>
+
+                      <span>
+                        {formatearFecha(tarea.fechaObjetivo)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="today-upcoming-hours">
+                    {obtenerHoras(tarea)}h
+                  </div>
+
+                  <span className="today-upcoming-arrow">
+                    Ver detalles →
+                  </span>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+      {tareaPosponer && (
+        <div className="postpone-overlay">
+          <div
+            className="postpone-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="postpone-title"
+          >
+            <button
+              type="button"
+              className="postpone-close"
+              onClick={() => setTareaPosponer(null)}
+              disabled={guardandoPosposicion}
+              aria-label="Cerrar"
+            >
+              ×
+            </button>
+
+            <h2 id="postpone-title">¡Qué lástima!</h2>
+
+            <p>
+              ¿Deseas contarnos por qué se reprogramará esta gestión?
+              <br />
+              <small>La razón es opcional.</small>
+            </p>
+            <div className="postpone-field">
+              <label htmlFor="nueva-fecha">
+                Nueva fecha <span>*</span>
+              </label>
+
+              <input
+                id="nueva-fecha"
+                type="date"
+                min={obtenerFechaLocalHoy()}
+                value={nuevaFecha}
+                onChange={(event) => setNuevaFecha(event.target.value)}
+                disabled={guardandoPosposicion}
+              />
+            </div>
+
+            <div className="postpone-field">
+              <label htmlFor="motivo-posposicion">
+                Razón <small>(Opcional)</small>
+              </label>
+
+              <textarea
+                id="motivo-posposicion"
+                value={motivoPosposicion}
+                onChange={(event) =>
+                  setMotivoPosposicion(event.target.value)
+                }
+                placeholder="Cuéntanos brevemente por qué se pospondrá..."
+                maxLength={500}
+                disabled={guardandoPosposicion}
+              />
+            </div>
+
+            <div className="postpone-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => setTareaPosponer(null)}
+                disabled={guardandoPosposicion}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btn primary"
+                onClick={confirmarPosposicion}
+                disabled={!nuevaFecha || guardandoPosposicion}
+              >
+                {guardandoPosposicion
+                  ? "Guardando..."
+                  : "Confirmar reprogramación"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
+function OnboardingRegistro() {
+  const [seleccionados, setSeleccionados] = useState([
+    "fiesta",
+    "corporativos",
+  ]);
 
+  const opciones = [
+    {
+      id: "fiesta",
+      titulo: "Fiesta",
+      etiqueta: "Social",
+      descripcion:
+        "Bodas, cumpleaños, aniversarios, galas y celebraciones sociales privadas.",
+      pie: "Plantillas de banquete",
+      icono: "✣",
+    },
+    {
+      id: "corporativos",
+      titulo: "Eventos corporativos",
+      etiqueta: "B2B",
+      descripcion:
+        "Lanzamientos de producto, congresos empresariales, reuniones de accionistas y convenciones.",
+      pie: "Actas y sponsors",
+      icono: "▦",
+    },
+    {
+      id: "personales",
+      titulo: "Eventos personales",
+      etiqueta: "Íntimo",
+      descripcion:
+        "Reuniones íntimas, baby showers, cenas exclusivas y compromisos familiares.",
+      pie: "Listas RSVP privadas",
+      icono: "♡",
+    },
+    {
+      id: "culturales",
+      titulo: "Eventos culturales",
+      etiqueta: "Público",
+      descripcion:
+        "Festivales de música, exposiciones de arte, obras de teatro y eventos comunitarios.",
+      pie: "Boletaje y aforos",
+      icono: "▣",
+    },
+    {
+      id: "tecnologia",
+      titulo: "Eventos en tecnología",
+      etiqueta: "Tech",
+      descripcion:
+        "Hackathones, summits tecnológicos, meetups de desarrolladores y lanzamientos de software.",
+      pie: "Sprints & Keynotes",
+      icono: "▤",
+    },
+  ];
 
+  const alternarSeleccion = (id) => {
+    setSeleccionados((actuales) =>
+      actuales.includes(id)
+        ? actuales.filter((item) => item !== id)
+        : [...actuales, id]
+    );
+  };
+
+  const comenzarOrganizar = () => {
+    navegar("/eventos");
+  };
+
+  const omitir = () => {
+    navegar("/eventos");
+  };
+
+  return (
+    <main className="onboarding-page">
+      <section className="onboarding-container">
+
+        {/* BRAND */}
+        <div className="onboarding-brand">
+          <img
+            src={logo_EventHub}
+            alt="EventHub"
+            className="onboarding-logo"
+          />
+
+          <span className="onboarding-workspace">
+            ESPACIO DE TRABAJO
+          </span>
+        </div>
+
+        {/* PASO */}
+        <div className="onboarding-step">
+          <span>☷</span>
+          <strong>Paso 2 de 2</strong>
+          <span>•</span>
+          <span>Personalización de tu espacio de trabajo</span>
+        </div>
+
+        {/* TITULO */}
+        <div className="onboarding-heading">
+          <h1>¿Qué enfoque estás buscando?</h1>
+
+          <p>
+            Selecciona el tipo de eventos que gestionas con mayor frecuencia
+            para calibrar tus plantillas, cronogramas y parámetros de capacidad.
+          </p>
+
+          <small>
+            ⓘ Puedes elegir más de uno para adaptar tu panel multifuncional
+          </small>
+        </div>
+
+        {/* OPCIONES */}
+        <div className="onboarding-options">
+          {opciones.map((opcion) => {
+            const seleccionado = seleccionados.includes(opcion.id);
+
+            return (
+              <button
+                key={opcion.id}
+                type="button"
+                className={`onboarding-option ${seleccionado ? "selected" : ""
+                  }`}
+                onClick={() => alternarSeleccion(opcion.id)}
+              >
+                <div className="onboarding-option-top">
+                  <span className="onboarding-option-icon">
+                    {opcion.icono}
+                  </span>
+
+                  <span
+                    className={`onboarding-check ${seleccionado ? "checked" : ""
+                      }`}
+                    aria-hidden="true"
+                  >
+                    {seleccionado ? "✓" : ""}
+                  </span>
+                </div>
+
+                <div className="onboarding-option-title">
+                  <h2>{opcion.titulo}</h2>
+                  <span>{opcion.etiqueta}</span>
+                </div>
+
+                <p>{opcion.descripcion}</p>
+
+                <div className="onboarding-option-footer">
+                  <span>{opcion.pie}</span>
+                  <span>→</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ACCIONES */}
+        <div className="onboarding-actions">
+          <button
+            type="button"
+            className="onboarding-skip"
+            onClick={omitir}
+          >
+            Omitir por ahora
+          </button>
+
+          <button
+            type="button"
+            className="onboarding-start"
+            onClick={comenzarOrganizar}
+          >
+            Comenzar a Organizar
+            <span>→</span>
+          </button>
+        </div>
+
+        {/* FOOTER */}
+        <footer className="onboarding-footer">
+          <strong>EventHub OS</strong>
+          <span>—</span>
+          <span>Plataforma Operativa de Alto Rendimiento para Productoras y Organizadores</span>
+
+          <small>
+            © 2025 EventHub Inc. Todos los derechos reservados.
+            Tus preferencias se sincronizan en la nube.
+          </small>
+        </footer>
+
+      </section>
+    </main>
+  );
+}
+function RegistroUsuario() {
+  const [nombre, setNombre] = useState("");
+  const [apellido, setApellido] = useState("");
+  const [email, setEmail] = useState("");
+  const [codigoPais, setCodigoPais] = useState("+34");
+  const [telefono, setTelefono] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmarPassword, setConfirmarPassword] = useState("");
+
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+  const [mostrarConfirmarPassword, setMostrarConfirmarPassword] =
+    useState(false);
+
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
+
+  const [errores, setErrores] = useState({});
+  const [errorServidor, setErrorServidor] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  const validar = () => {
+    const next = {};
+
+    if (!nombre.trim()) {
+      next.nombre = "El nombre es requerido.";
+    } else if (nombre.trim().length < 2) {
+      next.nombre = "El nombre debe tener al menos 2 caracteres.";
+    }
+
+    if (!apellido.trim()) {
+      next.apellido = "El apellido es requerido.";
+    } else if (apellido.trim().length < 2) {
+      next.apellido = "El apellido debe tener al menos 2 caracteres.";
+    }
+
+    if (!email.trim()) {
+      next.email = "El correo electrónico es requerido.";
+    } else if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+    ) {
+      next.email = "Ingresa un correo electrónico válido.";
+    }
+
+    const telefonoLimpio = telefono.replace(/\D/g, "");
+
+    if (!telefonoLimpio) {
+      next.telefono = "El teléfono es requerido.";
+    } else if (telefonoLimpio.length < 7) {
+      next.telefono = "Ingresa un teléfono válido.";
+    }
+
+    if (!password) {
+      next.password = "La contraseña es requerida.";
+    } else if (password.length < 8) {
+      next.password = "La contraseña debe tener mínimo 8 caracteres.";
+    }
+
+    if (!confirmarPassword) {
+      next.confirmarPassword = "Confirma tu contraseña.";
+    } else if (password !== confirmarPassword) {
+      next.confirmarPassword = "Las contraseñas no coinciden.";
+    }
+
+    if (!aceptaTerminos) {
+      next.terminos =
+        "Debes aceptar los términos y la política de privacidad.";
+    }
+
+    return next;
+  };
+
+  const limpiarError = (campo) => {
+    setErrores((prev) => ({
+      ...prev,
+      [campo]: "",
+    }));
+
+    setErrorServidor("");
+  };
+
+  const enviar = async (event) => {
+    event.preventDefault();
+
+    const next = validar();
+
+    setErrores(next);
+    setErrorServidor("");
+
+    if (Object.keys(next).length > 0) {
+      return;
+    }
+
+    setEnviando(true);
+
+    try {
+      const telefonoCompleto = `${codigoPais} ${telefono
+        .replace(/\s+/g, " ")
+        .trim()}`;
+
+      const dataRegistro = await registrarUsuario({
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        email: email.trim(),
+        telefono: telefonoCompleto,
+        password,
+      });
+
+      // Iniciar sesión automáticamente después del registro
+      const sesion = await iniciarSesion(
+        email.trim(),
+        password
+      );
+
+      guardarSesion(sesion);
+
+      navegar("/registro/onboarding");
+    } catch (error) {
+      setErrorServidor(
+        error.message || "No fue posible crear la cuenta."
+      );
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <main className="register-page">
+      <section className="register-card">
+
+        {/* BRAND */}
+        <div className="register-brand">
+          <img
+            src={logo_EventHub}
+            alt="EventHub"
+            className="register-logo"
+          />
+
+          <p className="register-subtitle">
+            PLATAFORMA DE GESTIÓN LOGÍSTICA DE EVENTOS
+          </p>
+
+          <h1>Crea tu cuenta de organizador</h1>
+
+          <p>
+            Centraliza la planificación, cronogramas y logística técnica
+            en una sola plataforma operativa.
+          </p>
+        </div>
+
+        {/* ERROR SERVIDOR */}
+        {errorServidor && (
+          <div className="register-error" role="alert">
+            <strong>No fue posible crear la cuenta.</strong>
+            <span>{errorServidor}</span>
+          </div>
+        )}
+
+        <form onSubmit={enviar} noValidate>
+
+          {/* NOMBRE / APELLIDO */}
+          <div className="register-fields-row">
+
+            <div className="register-field">
+              <label htmlFor="register-nombre">
+                Nombre <span>*</span>
+              </label>
+
+              <input
+                id="register-nombre"
+                type="text"
+                placeholder="Ej. Valentina"
+                value={nombre}
+                onChange={(event) => {
+                  setNombre(event.target.value);
+                  limpiarError("nombre");
+                }}
+                autoComplete="given-name"
+                aria-invalid={Boolean(errores.nombre)}
+              />
+
+              {errores.nombre && (
+                <small className="register-inline-error">
+                  {errores.nombre}
+                </small>
+              )}
+            </div>
+
+            <div className="register-field">
+              <label htmlFor="register-apellido">
+                Apellido <span>*</span>
+              </label>
+
+              <input
+                id="register-apellido"
+                type="text"
+                placeholder="Ej. Morales"
+                value={apellido}
+                onChange={(event) => {
+                  setApellido(event.target.value);
+                  limpiarError("apellido");
+                }}
+                autoComplete="family-name"
+                aria-invalid={Boolean(errores.apellido)}
+              />
+
+              {errores.apellido && (
+                <small className="register-inline-error">
+                  {errores.apellido}
+                </small>
+              )}
+            </div>
+
+          </div>
+
+          {/* EMAIL */}
+          <div className="register-field">
+            <label htmlFor="register-email">
+              Correo electrónico corporativo <span>*</span>
+            </label>
+
+            <div className="register-input-with-icon">
+              <span>✉</span>
+
+              <input
+                id="register-email"
+                type="email"
+                placeholder="coordinador@eventhub.com"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  limpiarError("email");
+                }}
+                autoComplete="email"
+                aria-invalid={Boolean(errores.email)}
+              />
+            </div>
+
+            {errores.email && (
+              <small className="register-inline-error">
+                {errores.email}
+              </small>
+            )}
+          </div>
+
+          {/* TELEFONO */}
+          <div className="register-field">
+            <label htmlFor="register-telefono">
+              Teléfono de contacto de guardia <span>*</span>
+            </label>
+
+            <div className="register-phone">
+
+              <select
+                value={codigoPais}
+                onChange={(event) => {
+                  setCodigoPais(event.target.value);
+                  limpiarError("telefono");
+                }}
+                aria-label="Código de país"
+              >
+                <option value="+34">+34</option>
+                <option value="+57">+57</option>
+                <option value="+1">+1</option>
+                <option value="+52">+52</option>
+              </select>
+
+              <input
+                id="register-telefono"
+                type="tel"
+                placeholder="612 345 678"
+                value={telefono}
+                onChange={(event) => {
+                  setTelefono(event.target.value);
+                  limpiarError("telefono");
+                }}
+                autoComplete="tel"
+                aria-invalid={Boolean(errores.telefono)}
+              />
+
+            </div>
+
+            {errores.telefono && (
+              <small className="register-inline-error">
+                {errores.telefono}
+              </small>
+            )}
+          </div>
+
+          {/* PASSWORD */}
+          <div className="register-field">
+
+            <div className="register-label-row">
+              <label htmlFor="register-password">
+                Contraseña de acceso <span>*</span>
+              </label>
+
+              <small>
+                Mín. 8 caracteres
+              </small>
+            </div>
+
+            <div className="register-input-with-icon">
+
+              <span>♙</span>
+
+              <input
+                id="register-password"
+                type={mostrarPassword ? "text" : "password"}
+                placeholder="••••••••••••"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  limpiarError("password");
+                }}
+                autoComplete="new-password"
+                aria-invalid={Boolean(errores.password)}
+              />
+
+              <button
+                type="button"
+                className="register-password-toggle"
+                onClick={() =>
+                  setMostrarPassword((prev) => !prev)
+                }
+                aria-label={
+                  mostrarPassword
+                    ? "Ocultar contraseña"
+                    : "Mostrar contraseña"
+                }
+              >
+                {mostrarPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+
+            </div>
+
+            <div className="register-helper-row">
+              <span>◉ Seguridad recomendada</span>
+            </div>
+
+            {errores.password && (
+              <small className="register-inline-error">
+                {errores.password}
+              </small>
+            )}
+          </div>
+
+          {/* CONFIRMAR PASSWORD */}
+          <div className="register-field">
+
+            <label htmlFor="register-confirm-password">
+              Confirmar contraseña <span>*</span>
+            </label>
+
+            <div className="register-input-with-icon">
+
+              <span>♙</span>
+
+              <input
+                id="register-confirm-password"
+                type={
+                  mostrarConfirmarPassword
+                    ? "text"
+                    : "password"
+                }
+                placeholder="••••••••••••"
+                value={confirmarPassword}
+                onChange={(event) => {
+                  setConfirmarPassword(event.target.value);
+                  limpiarError("confirmarPassword");
+                }}
+                autoComplete="new-password"
+                aria-invalid={Boolean(errores.confirmarPassword)}
+              />
+
+              <button
+                type="button"
+                className="register-password-toggle"
+                onClick={() =>
+                  setMostrarConfirmarPassword((prev) => !prev)
+                }
+                aria-label={
+                  mostrarConfirmarPassword
+                    ? "Ocultar contraseña"
+                    : "Mostrar contraseña"
+                }
+              >
+                {mostrarConfirmarPassword ? (
+                  <FaEyeSlash />
+                ) : (
+                  <FaEye />
+                )}
+              </button>
+
+            </div>
+
+            {errores.confirmarPassword && (
+              <small className="register-inline-error">
+                {errores.confirmarPassword}
+              </small>
+            )}
+          </div>
+
+          {/* TERMINOS */}
+          <div className="register-terms">
+
+            <input
+              id="register-terms"
+              type="checkbox"
+              checked={aceptaTerminos}
+              onChange={(event) => {
+                setAceptaTerminos(event.target.checked);
+                limpiarError("terminos");
+              }}
+            />
+
+            <label htmlFor="register-terms">
+              Acepto los Términos de Servicio y reconozco la Política
+              de Privacidad de EventHub, incluyendo el tratamiento de
+              registros de producción logística.
+            </label>
+
+          </div>
+
+          {errores.terminos && (
+            <small className="register-inline-error register-terms-error">
+              {errores.terminos}
+            </small>
+          )}
+
+          {/* CONTINUAR */}
+          <button
+            type="submit"
+            className="register-submit"
+            disabled={enviando}
+          >
+            {enviando
+              ? "Creando cuenta..."
+              : "Continuar al Onboarding  →"}
+          </button>
+
+        </form>
+
+        {/* LOGIN */}
+        <div className="register-login-divider">
+          <span>¿YA TIENES CREDENCIALES?</span>
+        </div>
+
+        <button
+          type="button"
+          className="register-login-link"
+          onClick={() => navegar("/login")}
+        >
+          Iniciar Sesión en EventHub&nbsp; →
+        </button>
+
+      </section>
+    </main>
+  );
+}
 export default function App() {
-  const [ruta, setRuta] = useState(rutaActual);
+  const [ruta, setRuta] = useState(obtenerRutaInicial);
   const [eventos, setEventos] = useState([]);
   const [cargandoEventos, setCargandoEventos] = useState(true);
   const [errorEventos, setErrorEventos] = useState("");
@@ -1401,10 +3497,31 @@ export default function App() {
   };
 
   useEffect(() => {
-    const onPop = () => setRuta(rutaActual());
+    const onPop = () => {
+      const path = window.location.pathname;
+
+      if (esRutaPrivada(path) && !estaAutenticado()) {
+        navegar("/login");
+        return;
+      }
+
+      if (path === "/login" && estaAutenticado()) {
+        navegar("/eventos");
+        return;
+      }
+
+      setRuta(rutaActual());
+    };
+
     window.addEventListener("popstate", onPop);
-    if (ruta === "/eventos") cargarEventos();
-    return () => window.removeEventListener("popstate", onPop);
+
+    if (ruta === "/eventos" && estaAutenticado()) {
+      cargarEventos();
+    }
+
+    return () => {
+      window.removeEventListener("popstate", onPop);
+    };
   }, [ruta]);
 
   const notify = (message, type = "success") => {
@@ -1421,17 +3538,32 @@ export default function App() {
 
   const detalleId = ruta.startsWith("/eventos/") ? ruta.split("/")[2] : null;
 
+  if (ruta === "/login") {
+    return (
+      <Login
+        onLogin={() => {
+          navegar("/eventos");
+        }}
+      />
+    );
+  }
+  if (ruta === "/registro") {
+    return <RegistroUsuario />;
+  }
+
+  if (ruta === "/registro/onboarding") {
+    return <OnboardingRegistro />;
+  }
+
   return <main className="app">
     <Header ruta={ruta} abrirCrear={() => navegar("/crear-evento")} />
     <Toast type={toast.type} message={toast.message} />
     {ruta === "/eventos" && <Eventos eventos={eventos} cargando={cargandoEventos} error={errorEventos} recargar={cargarEventos} crear={() => navegar("/crear-evento")} />}
     {ruta === "/hoy" && <Today onNotify={notify} />}
+    {ruta === "/configuracion" && (<ConfiguracionUsuario onNotify={notify} />)}
     {detalleId && <DetalleEvento id={detalleId} volver={() => navegar("/eventos")} onNotify={notify} onEventosChanged={cargarEventos} />}
     {ruta === "/crear-evento" && <CrearEventoPage onCancelar={() => navegar("/eventos")} onCrear={crear} />}
   </main>;
-
-  
-
 
 }
 
