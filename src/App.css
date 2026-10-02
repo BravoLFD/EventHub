@@ -3019,7 +3019,7 @@ small {
 
   color: #0f172a;
 
-  font-size: 24px;
+  font-size: 19px;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -5100,9 +5100,9 @@ small {
 }
 
 .onboarding-logo {
-  width: 105px;
+  width: 360px;
   height: auto;
-  object-fit: contain;
+  margin: 0 auto 20px;
 }
 
 .onboarding-workspace {
@@ -5111,7 +5111,7 @@ small {
   border-left: 1px solid #d8deea;
 
   color: #667085;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -5134,7 +5134,7 @@ small {
 
   color: #667085;
 
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .onboarding-step strong {
@@ -5170,7 +5170,7 @@ small {
 
   color: #667085;
 
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.6;
 }
 
@@ -5186,7 +5186,7 @@ small {
 
   color: #315bd5;
 
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* OPCIONES */
@@ -5314,7 +5314,7 @@ small {
 .onboarding-option-title h2 {
   margin: 0;
 
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.3;
 }
 
@@ -5327,7 +5327,7 @@ small {
 
   color: #315bd5;
 
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -5338,7 +5338,7 @@ small {
 
   color: #667085;
 
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1.55;
 }
 
@@ -5354,7 +5354,7 @@ small {
 
   color: #667085;
 
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .onboarding-option-footer span:last-child {
@@ -5382,7 +5382,7 @@ small {
 
   color: #475467;
 
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .onboarding-skip:hover {
@@ -5429,7 +5429,7 @@ small {
 
   color: #98a2b3;
 
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .onboarding-footer strong {
@@ -5443,7 +5443,7 @@ small {
 
   text-align: center;
 
-  font-size: 10px;
+  font-size: 11px;
 }
 
 
@@ -5462,12 +5462,16 @@ small {
 }
 
 @media (max-width: 560px) {
+  .onboarding-logo {
+    width: 300px;
+  }
+
   .onboarding-page {
     padding: 18px 14px 30px;
   }
 
   .onboarding-heading h1 {
-    font-size: 24px;
+    font-size: 25px;
   }
 
   .onboarding-options {
