@@ -2275,7 +2275,6 @@ small {
 
 .today-filter-reset:hover {
   background: #eef3ff;
-  transform: rotate(-45deg);
 }
 
 @media (max-width: 900px) {
