@@ -3334,7 +3334,6 @@ function RegistroUsuario() {
 
             <div className="register-helper-row">
               <span>◉ Seguridad recomendada</span>
-              <span>Ingresa tu clave</span>
             </div>
 
             {errores.password && (
