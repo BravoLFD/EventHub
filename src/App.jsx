@@ -628,8 +628,6 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
 
     if (!formulario.titulo.trim()) {
       next.titulo = "El título es requerido.";
-    } else if (formulario.titulo.trim().length < 5) {
-      next.titulo = "El título debe tener al menos 5 caracteres.";
     }
 
     const hoy = obtenerFechaLocalHoy();
@@ -685,7 +683,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
     <form onSubmit={enviar} noValidate>
       <div className="field-header"><label htmlFor="titulo">Título del evento <span>*</span></label><small>Obligatorio</small></div>
       <input id="titulo" name="titulo" value={formulario.titulo} onChange={actualizar} placeholder="Ej. Conferencia de Tecnología 2026" aria-invalid={Boolean(errores.titulo)} autoFocus />
-      {errores.titulo && <p className="inline-error" role="alert">X {errores.titulo}</p>}
+      {errores.titulo && <p className="inline-error" role="alert">{errores.titulo}</p>}
 
       <div className="form-two-columns">
         <div>
@@ -700,7 +698,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
             aria-invalid={Boolean(errores.fecha)}
           />
           {errores.fecha ? (
-            <p className="inline-error" role="alert">X {errores.fecha}</p>
+            <p className="inline-error" role="alert">{errores.fecha}</p>
           ) : (
             <p className="helper">ⓘ La fecha debe ser hoy o una fecha futura</p>
           )}
@@ -719,7 +717,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
             placeholder="4"
             aria-invalid={Boolean(errores.horas)}
           />
-          {errores.horas && <p className="inline-error" role="alert">X {errores.horas}</p>}
+          {errores.horas && <p className="inline-error" role="alert">{errores.horas}</p>}
           {!errores.horas && <p className="helper">ⓘ Las horas deben ser entre 1 y 24</p>}
         </div>
       </div>
@@ -742,7 +740,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
 
       {errores.usuario_responsable && (
         <p className="inline-error" role="alert">
-          X {errores.usuario_responsable}
+          {errores.usuario_responsable}
         </p>
       )}
 
