@@ -70,45 +70,29 @@ header {
 .brand {
   display: flex;
   align-items: center;
-
-  gap: 10px;
-
-  flex-shrink: 0;
+  gap: 8px;
 
   padding: 0;
 
   border: 0;
-
   background: transparent;
 
-  color: #12339c;
+  color: #315bd5;
 
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
 
-  white-space: nowrap;
+  cursor: pointer;
 }
 
-.brand-icon {
-  width: 31px;
-  height: 31px;
-
-  display: grid;
-  place-items: center;
-
-  border-radius: 9px;
-
-  background:
-    linear-gradient(135deg,
-      #315bd5,
-      #2448b8);
-
-  color: #fff;
-
-  font-size: 14px;
-
-  box-shadow:
-    0 6px 14px rgba(49, 91, 213, 0.22);
+.brand-logo {
+  width: 34px !important;
+  height: 34px !important;
+  max-width: 34px !important;
+  max-height: 34px !important;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
 }
 
 
