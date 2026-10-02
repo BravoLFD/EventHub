@@ -35,9 +35,8 @@ function rutaActual() {
   return rutas.includes(path) ? path : "/eventos";
 }
 function esRutaPublica(path) {
-   return path === "/login";
+  return path === "/login" || path === "/registro";
 }
-
 function esRutaPrivada(path) {
   return (
     path === "/eventos" ||
@@ -45,6 +44,7 @@ function esRutaPrivada(path) {
     path === "/crear-evento" ||
     path === "/configuracion" ||
     path === "/progreso" ||
+    path === "/registro/onboarding" ||
     path.startsWith("/eventos/")
   );
 }
