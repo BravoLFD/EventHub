@@ -37,7 +37,8 @@ function rutaActual() {
 function esRutaPublica(path) {
    return (
     path === "/login" ||
-    path === "/registro/onboarding"
+    path === "/registro/onboarding" ||
+    path === "/onboarding"
   );
 }
 
@@ -53,6 +54,10 @@ function esRutaPrivada(path) {
 }
 function obtenerRutaInicial() {
   const path = window.location.pathname;
+
+  if (path === "/onboarding") {
+    return "/registro/onboarding";
+  }
 
   if (esRutaPublica(path)) {
     if (path === "/registro/onboarding") {
