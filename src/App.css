@@ -4015,17 +4015,11 @@ small {
   gap: 5px;
   margin-bottom: 16px;
   padding: 11px 13px;
-
-  border: 1px solid #fca5a5;
+  border: 1px solid #fecaca;
   border-radius: 6px;
-
   background: #fef2f2;
   color: #991b1b;
   font-size: 13px;
-}
-
-.login-error strong {
-  font-weight: 700;
 }
 
 .login-error span {
