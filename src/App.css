@@ -81,7 +81,7 @@ header {
 
   background: transparent;
 
-  color: #315bd5;
+  color: #12339c;
 
   font-size: 22px;
   font-weight: 800;
@@ -89,12 +89,28 @@ header {
   white-space: nowrap;
 }
 
-.brand-logo {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-  display: block;
+.brand-icon {
+  width: 31px;
+  height: 31px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 9px;
+
+  background:
+    linear-gradient(135deg,
+      #315bd5,
+      #2448b8);
+
+  color: #fff;
+
+  font-size: 14px;
+
+  box-shadow:
+    0 6px 14px rgba(49, 91, 213, 0.22);
 }
+
 
 /* NAVEGACIÓN */
 
@@ -2268,9 +2284,7 @@ small {
 
   cursor: pointer;
 
-  transition:
-    background 0.2s ease,
-    transform 0.2s ease;
+  transition: background 0.2s ease;
 }
 
 .today-filter-reset:hover {
@@ -2706,8 +2720,31 @@ small {
   padding: 10px 20px 20px;
 }
 
-.today-empty h2 {
-  margin: 14px 0 8px;
+.today-empty-icon {
+  width: 50px;
+  height: 50px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin: 0 auto 12px;
+
+  border-radius: 14px;
+
+  background: #eef3ff;
+  color: #315bd5;
+
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.today-empty h3 {
+  margin: 0 0 6px;
+
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 700;
 
   text-align: center;
 }
@@ -2716,6 +2753,10 @@ small {
   margin: 0 auto 16px;
 
   max-width: 600px;
+
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
 
   text-align: center;
 }

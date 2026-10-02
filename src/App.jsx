@@ -1464,7 +1464,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
 
       <div className="subtasks-heading"><div><h2>Subtareas</h2><p>Organiza las tareas necesarias para completar este evento.</p></div><button className="btn primary" onClick={() => setModal("create-subtask")}>＋ Nueva subtarea</button></div>
       <section className="subtask-section card">
-        <div className="section-tabs"><span className="tab active">Con subtareas ({subtareas.length})</span><span className="tab">Estado Vacío</span><span className="tab">Estado de Carga</span><span className="tab">Estado de Error</span></div>
+        <div className="section-tabs"><span className="tab active">Con subtareas ({subtareas.length})</span></div>
         {estadoSubtareas === "loading" && <div className="state-inside"><span className="spinner" /> Cargando subtareas...</div>}
         {estadoSubtareas === "error" && <div className="state-inside error-inside" role="alert"><div><b>Error cargando las subtareas</b><p>{errorSubtareas}</p></div><button className="btn ghost" onClick={cargarSubtareas}>Reintentar</button></div>}
         {estadoSubtareas === "empty" && <div className="empty-subtasks"><div className="empty-icon">✦</div><h3>Aún no hay subtareas</h3><p>Agrega una subtarea para organizar este evento.</p><button className="btn primary" onClick={() => setModal("create-subtask")}>＋ Nueva subtarea</button></div>}
@@ -2332,10 +2332,20 @@ function Today({ onNotify }) {
             <option value="pospuesto">Pospuesto</option>
             <option value="hecho">Hecho</option>
           </select>
-        </div>EventHub
+        </div>
 
-        <button type="button" class="today-filter-reset" aria-label="Limpiar filtros" title="Limpiar filtros">
-          <span class="reset-icon">↻</span>
+        <button
+          type="button"
+          className="today-filter-reset"
+          aria-label="Limpiar filtros"
+          title="Limpiar filtros"
+          onClick={() => {
+            setFiltroBusqueda("");
+            setFiltroEvento("");
+            setFiltroEstado("");
+          }}
+        >
+          <span className="reset-icon">↻</span>
         </button>
 
       </div>
@@ -2533,8 +2543,9 @@ function Today({ onNotify }) {
 
                 {urgentes.length === 0 ? (
                   <div className="today-empty">
-                    <span>✓</span>
-                    <p>No tienes gestiones urgentes.</p>
+                    <div className="today-empty-icon">✓</div>
+                    <h3>Todo está al día</h3>
+                    <p>No tienes gestiones urgentes pendientes para hoy.</p>
                   </div>
                 ) : (
                   urgentesFiltradas.map((tarea) => renderTarea(tarea, true))
