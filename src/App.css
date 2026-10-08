@@ -190,6 +190,35 @@ header nav {
     box-shadow 0.2s ease;
 }
 
+.search-placeholder label {
+  flex: 0 0 auto;
+  color: #697286;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.search-placeholder input {
+  width: 100%;
+  min-width: 0;
+  margin-left: 7px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #273044;
+  font-size: 13px;
+}
+
+.search-placeholder input::placeholder {
+  color: #697286;
+  opacity: 1;
+}
+
+.search-placeholder:focus-within {
+  border-color: #315bd5;
+  box-shadow: 0 0 0 3px rgba(49, 91, 213, 0.12);
+}
+
 .search-placeholder:hover {
   border-color: #aebbd4;
 }
@@ -4612,6 +4641,75 @@ small {
   color: #98a2b3;
 
   font-size: 12px;
+}
+
+.password-strength {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.password-strength span {
+  height: 4px;
+  border-radius: 4px;
+  background: #e4e7ec;
+}
+
+.password-strength-debil span:first-child {
+  background: #dc3545;
+}
+
+.password-strength-media span:nth-child(-n + 2) {
+  background: #f59e0b;
+}
+
+.password-strength-segura span {
+  background: #16a34a;
+}
+
+.create-event-subtask {
+  margin: 22px 0;
+  padding: 16px;
+  border: 1px solid #dce2ec;
+  border-radius: 10px;
+  background: #f8faff;
+}
+
+.create-event-subtask-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.create-event-subtask-toggle input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: #315bd5;
+}
+
+.create-event-subtask-toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.create-event-subtask-toggle strong {
+  color: #172033;
+  font-size: 14px;
+}
+
+.create-event-subtask-toggle small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.create-event-subtask-fields {
+  margin-top: 16px;
+  padding-top: 15px;
+  border-top: 1px solid #dce2ec;
 }
 
 

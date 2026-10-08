@@ -1,7 +1,7 @@
 import "./App.css";
 import logo_EventHub from "./assets/Logo.png";
 import logo_Jaguar from "./assets/Logo_Jaguar.png";
-import { FaLock, FaEye, FaEyeSlash, FaDoorOpen, FaSyncAlt, } from "react-icons/fa";
+import { FaLock, FaEye, FaEyeSlash, FaDoorOpen, FaSyncAlt, FaTrashAlt } from "react-icons/fa";
 import { useEffect, useRef, useState } from "react";
 import {
   actualizarEvento,
@@ -135,7 +135,7 @@ function Modal({ title, subtitle, close, children, wide = false }) {
   );
 }
 
-function Header({ ruta, abrirCrear }) {
+function Header({ ruta, abrirCrear, busquedaEventos, onBuscarEventos }) {
   const [mostrarCerrarSesion, setMostrarCerrarSesion] = useState(false);
 
   const confirmarCerrarSesion = () => {
@@ -175,15 +175,29 @@ function Header({ ruta, abrirCrear }) {
             className={ruta === "/hoy" ? "nav-link active" : "nav-link"}
             onClick={() => navegar("/hoy")}
           >
-            Hoy
+            Gestión de subtareas
           </button>
         </nav>
 
         <div className="header-spacer" />
 
-        <div className="search-placeholder">
-          ⌕ <span>Buscar eventos, tareas...</span>
-        </div>
+        <form
+          className="search-placeholder"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            navegar("/eventos");
+          }}
+        >
+          <label htmlFor="header-event-search" aria-label="Buscar eventos">⌕</label>
+          <input
+            id="header-event-search"
+            type="search"
+            placeholder="Buscar eventos..."
+            value={busquedaEventos}
+            onChange={(event) => onBuscarEventos(event.target.value)}
+          />
+        </form>
 
         <button
           className="icon-button"
@@ -534,6 +548,13 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [crearSubtareaInicial, setCrearSubtareaInicial] = useState(false);
+  const [subtarea, setSubtarea] = useState({
+    titulo: "",
+    horas_estimadas: "",
+    estado: "pendiente",
+  });
+  const [errorSubtarea, setErrorSubtarea] = useState("");
 
   useEffect(() => {
     onProgress?.({
@@ -550,7 +571,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
       const siguiente = { ...prev, [name]: value };
 
       const pasosCompletados = [
-        Boolean(siguiente.titulo.trim() && siguiente.titulo.trim().length >= 5),
+        Boolean(siguiente.titulo.trim()),
         Boolean(siguiente.fecha),
         Boolean(
           siguiente.horas &&
@@ -565,7 +586,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
         porcentaje: Math.round((pasosCompletados / 4) * 100),
         pasosCompletados,
         pasos: [
-          Boolean(siguiente.titulo.trim() && siguiente.titulo.trim().length >= 5),
+          Boolean(siguiente.titulo.trim()),
           Boolean(siguiente.fecha),
           Boolean(
             siguiente.horas &&
@@ -623,6 +644,20 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
     const next = validar();
     setErrores(next);
     setErrorServidor("");
+    if (
+      crearSubtareaInicial &&
+      (subtarea.titulo.trim().length < 2 ||
+        !subtarea.horas_estimadas ||
+        Number(subtarea.horas_estimadas) <= 0 ||
+        Number(subtarea.horas_estimadas) > 24 ||
+        !Number.isInteger(Number(subtarea.horas_estimadas)))
+    ) {
+      setErrorSubtarea(
+        "El nombre debe tener al menos 2 caracteres y las horas deben ser un entero entre 1 y 24."
+      );
+      return;
+    }
+    setErrorSubtarea("");
     if (Object.keys(next).length) return;
 
     setEnviando(true);
@@ -633,7 +668,12 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
         horas: Number(formulario.horas),
         usuario_responsable: formulario.usuario_responsable.trim(),
         descripcion: formulario.descripcion.trim() || null,
-      });
+      }, crearSubtareaInicial ? {
+        titulo: subtarea.titulo.trim(),
+        horas_estimadas: Number(subtarea.horas_estimadas),
+        estado: subtarea.estado,
+        dia_objetivo: formulario.fecha,
+      } : null);
     } catch (error) {
       setErrorServidor(error.message);
       setEnviando(false);
@@ -708,6 +748,81 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
       <div className="field-header"><label htmlFor="descripcion">Descripción</label><small>Opcional</small></div>
       <textarea id="descripcion" name="descripcion" value={formulario.descripcion} onChange={actualizar} placeholder="Describe el objetivo, alcance o información útil del evento." />
 
+      <section className="create-event-subtask">
+        <label className="create-event-subtask-toggle">
+          <input
+            type="checkbox"
+            checked={crearSubtareaInicial}
+            onChange={(event) => {
+              setCrearSubtareaInicial(event.target.checked);
+              setErrorSubtarea("");
+            }}
+          />
+          <span>
+            <strong>Crear una subtarea</strong>
+            <small>Se guardará vinculada a este evento y con su fecha de realización.</small>
+          </span>
+        </label>
+        {crearSubtareaInicial && (
+          <div className="create-event-subtask-fields">
+            <div className="field-header">
+              <label htmlFor="evento-subtarea-titulo">Nombre de la subtarea <span>*</span></label>
+            </div>
+            <input
+              id="evento-subtarea-titulo"
+              value={subtarea.titulo}
+              onChange={(event) =>
+                setSubtarea((prev) => ({ ...prev, titulo: event.target.value }))
+              }
+              placeholder="Ej. Preparar presentación"
+              minLength={2}
+            />
+            <div className="form-two-columns">
+              <div>
+                <div className="field-header">
+                  <label htmlFor="evento-subtarea-horas">Horas <span>*</span></label>
+                </div>
+                <input
+                  id="evento-subtarea-horas"
+                  type="number"
+                  min="1"
+                  max="24"
+                  step="1"
+                  value={subtarea.horas_estimadas}
+                  onChange={(event) =>
+                    setSubtarea((prev) => ({
+                      ...prev,
+                      horas_estimadas: event.target.value,
+                    }))
+                  }
+                  placeholder="2"
+                />
+              </div>
+              <div>
+                <div className="field-header">
+                  <label htmlFor="evento-subtarea-estado">Estado</label>
+                </div>
+                <select
+                  id="evento-subtarea-estado"
+                  value={subtarea.estado}
+                  onChange={(event) =>
+                    setSubtarea((prev) => ({ ...prev, estado: event.target.value }))
+                  }
+                >
+                  <option value="pendiente">Pendiente</option>
+                  <option value="hecho">Hecho</option>
+                  <option value="pospuesto">Pospuesto</option>
+                </select>
+              </div>
+            </div>
+            <p className="helper">
+              Fecha límite: {formulario.fecha ? formatearFecha(formulario.fecha) : "elige primero la fecha del evento"}
+            </p>
+            {errorSubtarea && <p className="inline-error" role="alert">{errorSubtarea}</p>}
+          </div>
+        )}
+      </section>
+
       {errorServidor && <div className="alert alert-error" role="alert"><b>No fue posible crear el evento.</b><span>{errorServidor}</span></div>}
       <div className="actions">
         <button className="btn ghost" type="button" onClick={onCancelar} disabled={enviando}>Cancelar</button>
@@ -722,10 +837,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
     nombre: "",
     horas: "",
     estado: "pendiente",
-    dia_objetivo:
-      eventoFecha && eventoFecha >= obtenerFechaLocalHoy()
-        ? eventoFecha
-        : obtenerFechaLocalHoy(),
+    dia_objetivo: eventoFecha || "",
   });
 
   const [errores, setErrores] = useState({});
@@ -765,13 +877,8 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
       next.horas = "Las horas deben ser mayor a 0.";
     }
 
-    const hoy = obtenerFechaLocalHoy();
-
     if (!form.dia_objetivo) {
-      next.dia_objetivo = "El día objetivo es requerido.";
-    } else if (form.dia_objetivo < hoy) {
-      next.dia_objetivo =
-        "El día objetivo no puede ser anterior a hoy.";
+      next.dia_objetivo = "La fecha del evento es requerida.";
     }
     setErrores(next);
 
@@ -879,7 +986,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
 
       <div className="field-header">
         <label htmlFor="sub-dia-objetivo">
-          Día objetivo <span>*</span>
+          Fecha límite <span>*</span>
         </label>
       </div>
 
@@ -887,11 +994,11 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
         id="sub-dia-objetivo"
         name="dia_objetivo"
         type="date"
-        min={obtenerFechaLocalHoy()}
+        disabled
         value={form.dia_objetivo}
-        onChange={actualizar}
         aria-invalid={Boolean(errores.dia_objetivo)}
       />
+      <p className="helper">La fecha límite corresponde al día del evento.</p>
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
@@ -980,8 +1087,8 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
   const validar = () => {
     const next = {};
 
-    if (!formulario.titulo.trim()) {
-      next.titulo = "El título es requerido.";
+    if (formulario.titulo.trim().length < 3) {
+      next.titulo = "El título debe tener al menos 3 caracteres.";
     } else if (formulario.titulo.trim().length < 5) {
       next.titulo = "El título debe tener al menos 5 caracteres.";
     }
@@ -1109,17 +1216,12 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
   );
 }
 
-function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
-  const hoy = obtenerFechaLocalHoy();
-
+function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGuardado }) {
   const [form, setForm] = useState({
     nombre: subtarea?.titulo ?? subtarea?.nombre ?? "",
     horas: subtarea?.horas_estimadas ?? subtarea?.horas ?? "",
     estado: normalizarEstado(subtarea?.estado),
-    dia_objetivo:
-      subtarea?.dia_objetivo && subtarea.dia_objetivo >= hoy
-        ? subtarea.dia_objetivo
-        : hoy,
+    dia_objetivo: eventoFecha || subtarea?.dia_objetivo || "",
   });
 
   const [errores, setErrores] = useState({});
@@ -1158,13 +1260,8 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
     ) {
       next.horas = "Las horas deben ser mayor a 0.";
     }
-    const hoy = obtenerFechaLocalHoy();
-
     if (!form.dia_objetivo) {
-      next.dia_objetivo = "El día objetivo es requerido.";
-    } else if (form.dia_objetivo < hoy) {
-      next.dia_objetivo =
-        "El día objetivo no puede ser anterior a hoy.";
+      next.dia_objetivo = "La fecha del evento es requerida.";
     }
     setErrores(next);
 
@@ -1179,7 +1276,7 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
       await actualizarSubtarea(subtarea.id, {
         evento_id: eventoId,
         titulo: form.nombre.trim(),
-        dia_objetivo: form.dia_objetivo,
+        dia_objetivo: eventoFecha || form.dia_objetivo,
         horas_estimadas: Number(form.horas),
         estado: form.estado,
       });
@@ -1267,7 +1364,7 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
 
       <div className="field-header">
         <label htmlFor="edit-sub-dia-objetivo">
-          Día objetivo <span>*</span>
+          Fecha límite <span>*</span>
         </label>
       </div>
 
@@ -1275,11 +1372,11 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
         id="edit-sub-dia-objetivo"
         name="dia_objetivo"
         type="date"
-        min={obtenerFechaLocalHoy()}
+        disabled
         value={form.dia_objetivo}
-        onChange={actualizar}
         aria-invalid={Boolean(errores.dia_objetivo)}
       />
+      <p className="helper">La fecha límite corresponde al día del evento.</p>
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
@@ -1316,7 +1413,14 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
     </form>
   );
 }
-function Eventos({ eventos, cargando, error, recargar, crear }) {
+function Eventos({ eventos, cargando, error, recargar, crear, busqueda }) {
+  const termino = busqueda.trim().toLocaleLowerCase("es");
+  const eventosVisibles = eventos.filter((evento) =>
+    `${evento.titulo || ""} ${evento.descripcion || ""}`
+      .toLocaleLowerCase("es")
+      .includes(termino)
+  );
+
   return (
     <section className="page">
       <div className="heading">
@@ -1325,8 +1429,9 @@ function Eventos({ eventos, cargando, error, recargar, crear }) {
       {cargando && <section className="card state-card"><span className="spinner" /> Cargando eventos...</section>}
       {!cargando && error && <section className="card state-card error-state" role="alert"><div><b>No se pudieron cargar los eventos.</b><p>{error}</p></div><button className="btn ghost" onClick={recargar}>Reintentar</button></section>}
       {!cargando && !error && eventos.length === 0 && <section className="card empty-state"><div className="empty-icon">✦</div><h2>Aún no hay eventos</h2><p>¿Deseas crear tu primer evento?</p><button className="btn primary" onClick={crear}>Crear el primer evento</button></section>}
-      {!cargando && !error && eventos.length > 0 && <section className="event-grid" aria-label="Eventos guardados">
-        {eventos.map((evento) => <article className="event-card card" key={evento.id ?? `${evento.titulo}-${evento.fecha}`}>
+      {!cargando && !error && eventos.length > 0 && eventosVisibles.length === 0 && <section className="card empty-state"><div className="empty-icon">⌕</div><h2>No se encontraron eventos</h2><p>Prueba con otro nombre.</p></section>}
+      {!cargando && !error && eventosVisibles.length > 0 && <section className="event-grid" aria-label="Eventos guardados">
+        {eventosVisibles.map((evento) => <article className="event-card card" key={evento.id ?? `${evento.titulo}-${evento.fecha}`}>
           <div className="event-card-icon">✦</div>
           <div className="event-card-content"><span className="status-pill">● En preparación</span><h2>{evento.titulo}</h2><p>{formatearFecha(evento.fecha)} {evento.horas ? `• ${evento.horas} horas` : ""}</p>{evento.descripcion && <p className="muted-line">{evento.descripcion}</p>}</div>
           <button className="btn secondary" onClick={() => navegar(`/eventos/${evento.id}`)}>Ver detalle</button>
@@ -1410,7 +1515,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
         <div><h1>{evento.titulo}</h1><p>• Información del evento</p></div>
         <div className="title-actions">
           <button className="btn secondary" onClick={() => setModal("edit-event")}>✎ Editar</button>
-          <button className="btn danger-outline" onClick={() => setConfirmacion({ type: "evento" })}>▥ Eliminar</button>
+          <button className="btn danger-outline" onClick={() => setConfirmacion({ type: "evento" })}><FaTrashAlt aria-hidden="true" /> Eliminar</button>
         </div>
       </div>
 
@@ -1435,7 +1540,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
               <span className={`task-check ${estado === "hecho" ? "completed" : ""}`}>{estado === "hecho" ? "✓" : ""}</span>
               <div className="task-main"><h3 className={estado === "hecho" ? "completed-text" : ""}>{titulo}</h3><p>◷ {obtenerHoras(task)} {obtenerHoras(task) === 1 ? "hora" : "horas"}</p></div>
               <span className={`badge ${estado === "hecho" ? "badge-success" : "badge-pending"}`}>{etiquetaEstado(estado)}</span>
-              <div className="row-actions"><button className="btn ghost" onClick={() => setModal({ type: "edit-subtask", item: task })}>✎ Editar</button><button className="btn danger-outline" onClick={() => setConfirmacion({ type: "subtarea", item: task })}>▥ Eliminar</button></div>
+              <div className="row-actions"><button className="btn ghost" onClick={() => setModal({ type: "edit-subtask", item: task })}>✎ Editar</button><button className="btn danger-outline" onClick={() => setConfirmacion({ type: "subtarea", item: task })}><FaTrashAlt aria-hidden="true" /> Eliminar</button></div>
             </article>;
           })}
         </div>}
@@ -1445,7 +1550,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
 
       {modal === "create-subtask" && <Modal title="Crear subtarea" subtitle="Agrega una nueva tarea para este evento." close={() => setModal(null)}><CrearSubtareaForm eventoId={id} eventoFecha={evento.fecha} onCancelar={() => setModal(null)} onCreada={async () => { setModal(null); onNotify("Subtarea creada correctamente"); await cargarSubtareas(); }} /></Modal>}
       {modal === "edit-event" && <Modal title="Editar evento" subtitle="Actualiza la información del evento." close={() => setModal(null)} wide><EditarEventoForm evento={evento} onCancelar={() => setModal(null)} onGuardado={eventoActualizado} /></Modal>}
-      {modal?.type === "edit-subtask" && <Modal title="Editar subtarea" subtitle="Actualiza la información de la subtarea." close={() => setModal(null)}><EditarSubtareaForm subtarea={modal.item} eventoId={id} onCancelar={() => setModal(null)} onGuardado={subtareaActualizada} /></Modal>}
+      {modal?.type === "edit-subtask" && <Modal title="Editar subtarea" subtitle="Actualiza la información de la subtarea." close={() => setModal(null)}><EditarSubtareaForm subtarea={modal.item} eventoId={id} eventoFecha={evento.fecha} onCancelar={() => setModal(null)} onGuardado={subtareaActualizada} /></Modal>}
       {confirmacion?.type === "evento" && <ConfirmModal title="¿Eliminar evento?" message="Esta acción eliminará el evento y sus subtareas. No se puede deshacer." close={() => setConfirmacion(null)} onConfirm={ejecutarEliminacion} loading={eliminando} />}
       {confirmacion?.type === "subtarea" && <ConfirmModal title="¿Eliminar subtarea?" message={`Esta acción eliminará “${obtenerTituloSubtarea(confirmacion.item)}”. No se puede deshacer.`} close={() => setConfirmacion(null)} onConfirm={ejecutarEliminacion} loading={eliminando} />}
     </section>
@@ -1574,7 +1679,7 @@ function CrearEventoPage({ onCancelar, onCrear }) {
           <div className="validation-title"><span>ⓘ</span><h2>Reglas de validación y publicación</h2></div>
           <p>Al registrar un nuevo evento en el workspace de EventHub:</p>
           <ul>
-            <li><b>Título:</b> No puede quedar vacío ni contener menos de 5 caracteres.</li>
+            <li><b>Título:</b> Debe tener al menos 3 caracteres.</li>
             <li><b>Fecha:</b> Debe ser hoy o una fecha futura.</li>
             <li><b>Horas:</b> Debe ser un número entero entre 1 y 24.</li>
             <li><b>Usuario responsable:</b> Debe indicar la persona responsable del evento.</li>
@@ -3629,7 +3734,7 @@ function RegistroUsuario() {
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [email, setEmail] = useState("");
-  const [codigoPais, setCodigoPais] = useState("+34");
+  const [codigoPais, setCodigoPais] = useState("+57");
   const [telefono, setTelefono] = useState("");
   const [password, setPassword] = useState("");
   const [confirmarPassword, setConfirmarPassword] = useState("");
@@ -3643,6 +3748,23 @@ function RegistroUsuario() {
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const categoriasPassword = [
+    /[a-z]/.test(password),
+    /[A-Z]/.test(password),
+    /\d/.test(password),
+    /[^A-Za-z0-9]/.test(password),
+  ].filter(Boolean).length;
+  const nivelPassword =
+    password.length >= 12 && categoriasPassword >= 3
+      ? "segura"
+      : password.length >= 8 && categoriasPassword >= 2
+        ? "media"
+        : "debil";
+  const etiquetaPassword = {
+    debil: "Contraseña no segura",
+    media: "Contraseña medianamente segura",
+    segura: "Contraseña segura",
+  }[nivelPassword];
 
   const validar = () => {
     const next = {};
@@ -3761,16 +3883,7 @@ function RegistroUsuario() {
             className="register-logo"
           />
 
-          <p className="register-subtitle">
-            PLATAFORMA DE GESTIÓN LOGÍSTICA DE EVENTOS
-          </p>
-
           <h1>Crea tu cuenta de organizador</h1>
-
-          <p>
-            Centraliza la planificación, cronogramas y logística técnica
-            en una sola plataforma operativa.
-          </p>
         </div>
 
         {/* ERROR SERVIDOR */}
@@ -3871,7 +3984,7 @@ function RegistroUsuario() {
           {/* TELEFONO */}
           <div className="register-field">
             <label htmlFor="register-telefono">
-              Teléfono de contacto de guardia <span>*</span>
+              Teléfono de contacto <span>*</span>
             </label>
 
             <div className="register-phone">
@@ -3893,7 +4006,7 @@ function RegistroUsuario() {
               <input
                 id="register-telefono"
                 type="tel"
-                placeholder="612 345 678"
+                placeholder="300 123 4567"
                 value={telefono}
                 onChange={(event) => {
                   setTelefono(event.target.value);
@@ -3960,7 +4073,19 @@ function RegistroUsuario() {
             </div>
 
             <div className="register-helper-row">
-              <span>◉ Seguridad recomendada</span>
+              <span>{etiquetaPassword}</span>
+            </div>
+            <div
+              className={`password-strength password-strength-${nivelPassword}`}
+              role="meter"
+              aria-label={etiquetaPassword}
+              aria-valuemin="0"
+              aria-valuemax="3"
+              aria-valuenow={nivelPassword === "debil" ? 1 : nivelPassword === "media" ? 2 : 3}
+            >
+              <span />
+              <span />
+              <span />
             </div>
 
             {errores.password && (
@@ -4068,7 +4193,7 @@ function RegistroUsuario() {
 
         {/* LOGIN */}
         <div className="register-login-divider">
-          <span>¿YA TIENES CREDENCIALES?</span>
+          <span>¿ya tienes credenciales?</span>
         </div>
 
         <button
@@ -4086,6 +4211,7 @@ function RegistroUsuario() {
 export default function App() {
   const [ruta, setRuta] = useState(obtenerRutaInicial);
   const [eventos, setEventos] = useState([]);
+  const [busquedaEventos, setBusquedaEventos] = useState("");
   const [cargandoEventos, setCargandoEventos] = useState(true);
   const [errorEventos, setErrorEventos] = useState("");
   const [toast, setToast] = useState({ type: "success", message: "" });
@@ -4131,9 +4257,31 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast({ type, message: "" }), 4000);
   };
 
-  const crear = async (evento) => {
+  const crear = async (evento, subtarea = null) => {
     const creado = await crearEvento(evento);
-    notify("Evento creado correctamente");
+    if (subtarea && creado?.id) {
+      try {
+        await crearSubtarea({
+          ...subtarea,
+          evento_id: creado.id,
+          dia_objetivo: evento.fecha,
+        });
+      } catch (error) {
+        notify(
+          `El evento se creó, pero no fue posible guardar la subtarea: ${error.message}`,
+          "error"
+        );
+        navegar(`/eventos/${creado.id}`);
+        return;
+      }
+    } else if (subtarea) {
+      notify("El evento se creó, pero no se recibió su identificador para guardar la subtarea.", "error");
+      await cargarEventos();
+      navegar("/eventos");
+      return;
+    }
+
+    notify(subtarea ? "Evento y subtarea creados correctamente" : "Evento creado correctamente");
     if (creado?.id) navegar(`/eventos/${creado.id}`);
     else { await cargarEventos(); navegar("/eventos"); }
   };
@@ -4158,9 +4306,14 @@ export default function App() {
   }
 
   return <main className="app">
-    <Header ruta={ruta} abrirCrear={() => navegar("/crear-evento")} />
+    <Header
+      ruta={ruta}
+      abrirCrear={() => navegar("/crear-evento")}
+      busquedaEventos={busquedaEventos}
+      onBuscarEventos={setBusquedaEventos}
+    />
     <Toast type={toast.type} message={toast.message} />
-    {ruta === "/eventos" && <Eventos eventos={eventos} cargando={cargandoEventos} error={errorEventos} recargar={cargarEventos} crear={() => navegar("/crear-evento")} />}
+    {ruta === "/eventos" && <Eventos eventos={eventos} cargando={cargandoEventos} error={errorEventos} recargar={cargarEventos} crear={() => navegar("/crear-evento")} busqueda={busquedaEventos} />}
     {ruta === "/hoy" && <Today onNotify={notify} />}
     {ruta === "/configuracion" && (<ConfiguracionUsuario onNotify={notify} />)}
     {detalleId && <DetalleEvento id={detalleId} volver={() => navegar("/eventos")} onNotify={notify} onEventosChanged={cargarEventos} />}
