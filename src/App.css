@@ -6584,3 +6584,100 @@ small {
 .app.dark-theme .agenda-breakdown-item>b {
   color: #fff;
 }
+
+.app.dark-theme .today-filters {
+  border-color: #354154;
+  background: #1b2636;
+}
+
+.app.dark-theme .today-filter-select {
+  border-color: #46546a;
+  background: #141e2c;
+}
+
+.app.dark-theme .today-filter-select option {
+  background: #141e2c;
+  color: #fff;
+}
+
+.app.dark-theme .today-capacity {
+  border-color: #354154;
+  background: #1b2636;
+  color: #fff;
+}
+
+.app.dark-theme .today-capacity-track span {
+  background: #8ab4ff;
+}
+
+.app.dark-theme .today-upcoming-section,
+.app.dark-theme .today-upcoming-header h2,
+.app.dark-theme .today-upcoming-header p,
+.app.dark-theme .today-upcoming-count,
+.app.dark-theme .today-upcoming-main h3,
+.app.dark-theme .today-upcoming-meta,
+.app.dark-theme .today-upcoming-hours {
+  color: #fff;
+}
+
+.app.dark-theme .today-upcoming-count {
+  background: #29364a;
+}
+
+.app.dark-theme .today-action-secondary,
+.app.dark-theme .today-panel-secondary,
+.app.dark-theme .today-panel-cancel,
+.app.dark-theme .today-overdue-reprogram,
+.app.dark-theme .postpone-schedule-modal .postpone-actions .btn.primary {
+  border-color: #717785;
+  background: #717785;
+  color: #fff;
+}
+
+.app.dark-theme .today-action-secondary:hover:not(:disabled),
+.app.dark-theme .today-panel-secondary:hover:not(:disabled),
+.app.dark-theme .today-panel-cancel:hover:not(:disabled),
+.app.dark-theme .today-overdue-reprogram:hover:not(:disabled),
+.app.dark-theme .postpone-schedule-modal .postpone-actions .btn.primary:hover:not(:disabled) {
+  border-color: #858b98;
+  background: #858b98;
+  color: #fff;
+}
+
+.app.dark-theme .postpone-field label,
+.app.dark-theme .postpone-field label span,
+.app.dark-theme .postpone-field label small,
+.app.dark-theme .postpone-hours-field>small {
+  color: #fff;
+}
+
+.app.dark-theme .agenda-capacity-card strong,
+.app.dark-theme .agenda-capacity-card strong small,
+.app.dark-theme .agenda-capacity-card>div:first-child>span {
+  color: #fff;
+}
+
+.app.dark-theme .detail-page .back-link,
+.app.dark-theme .detail-page .back-link::first-letter {
+  color: #fff;
+}
+
+.app.dark-theme .postpone-schedule-modal .postpone-close,
+.app.dark-theme .agenda-modal .postpone-close {
+  top: 14px;
+  right: 16px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  color: #111;
+  line-height: 1;
+}
+
+.app.dark-theme .postpone-schedule-modal .postpone-close:hover,
+.app.dark-theme .agenda-modal .postpone-close:hover {
+  background: #e5e7eb;
+  color: #111;
+}
