@@ -175,7 +175,7 @@ function Header({ ruta, abrirCrear, busquedaEventos, onBuscarEventos }) {
             className={ruta === "/hoy" ? "nav-link active" : "nav-link"}
             onClick={() => navegar("/hoy")}
           >
-            Gestión de subtareas
+            Hoy
           </button>
         </nav>
 
@@ -353,7 +353,7 @@ function Login({ onLogin }) {
           />
 
           <p className="login-subtitle">
-            PLATAFORMA DE GESTIÓN LOGÍSTICA DE EVENTOS
+            INICIAR SESION
           </p>
 
           <span className="security-badge">
@@ -552,7 +552,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   const [subtarea, setSubtarea] = useState({
     titulo: "",
     horas_estimadas: "",
-    estado: "pendiente",
+    estado: "",
   });
   const [errorSubtarea, setErrorSubtarea] = useState("");
 
@@ -644,18 +644,24 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
     const next = validar();
     setErrores(next);
     setErrorServidor("");
-    if (
-      crearSubtareaInicial &&
-      (subtarea.titulo.trim().length < 2 ||
+    if (crearSubtareaInicial) {
+      const erroresSubtarea = [];
+      if (!subtarea.titulo.trim()) erroresSubtarea.push("indica el nombre");
+      if (
         !subtarea.horas_estimadas ||
         Number(subtarea.horas_estimadas) <= 0 ||
         Number(subtarea.horas_estimadas) > 24 ||
-        !Number.isInteger(Number(subtarea.horas_estimadas)))
-    ) {
-      setErrorSubtarea(
-        "El nombre debe tener al menos 2 caracteres y las horas deben ser un entero entre 1 y 24."
-      );
-      return;
+        !Number.isInteger(Number(subtarea.horas_estimadas))
+      ) {
+        erroresSubtarea.push("indica las horas (de 1 a 24)");
+      }
+      if (!subtarea.estado) erroresSubtarea.push("selecciona el estado");
+      if (!formulario.fecha) erroresSubtarea.push("indica la fecha del evento");
+
+      if (erroresSubtarea.length) {
+        setErrorSubtarea(`Para crear la subtarea, ${erroresSubtarea.join(", ")}.`);
+        return;
+      }
     }
     setErrorSubtarea("");
     if (Object.keys(next).length) return;
@@ -775,7 +781,6 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
                 setSubtarea((prev) => ({ ...prev, titulo: event.target.value }))
               }
               placeholder="Ej. Preparar presentación"
-              minLength={2}
             />
             <div className="form-two-columns">
               <div>
@@ -809,14 +814,27 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
                     setSubtarea((prev) => ({ ...prev, estado: event.target.value }))
                   }
                 >
+                  <option value="">Selecciona un estado</option>
                   <option value="pendiente">Pendiente</option>
                   <option value="hecho">Hecho</option>
                   <option value="pospuesto">Pospuesto</option>
                 </select>
               </div>
             </div>
+            <div className="field-header">
+              <label htmlFor="evento-subtarea-fecha">Fecha límite <span>*</span></label>
+            </div>
+            <input
+              id="evento-subtarea-fecha"
+              type="date"
+              value={formulario.fecha}
+              readOnly
+              disabled={!formulario.fecha}
+              aria-invalid={!formulario.fecha}
+            />
             <p className="helper">
-              Fecha límite: {formulario.fecha ? formatearFecha(formulario.fecha) : "elige primero la fecha del evento"}
+              La fecha límite corresponde al día del evento
+              {formulario.fecha ? ` (${formatearFecha(formulario.fecha)})` : "."}
             </p>
             {errorSubtarea && <p className="inline-error" role="alert">{errorSubtarea}</p>}
           </div>
@@ -1908,6 +1926,17 @@ function Today({ onNotify }) {
     return new Date(hoy.getFullYear(), hoy.getMonth(), 1);
   });
   const [guardandoPosposicion, setGuardandoPosposicion] = useState(false);
+  const claveCompletadasHoy = `eventhub_completadas_hoy_${obtenerFechaLocalHoy()}`;
+  const completadasHoyRef = useRef((() => {
+    try {
+      return new Set(
+        JSON.parse(sessionStorage.getItem(claveCompletadasHoy) || "[]")
+          .map(String)
+      );
+    } catch {
+      return new Set();
+    }
+  })());
 
 
   const cargarHoy = async () => {
@@ -1988,7 +2017,10 @@ function Today({ onNotify }) {
       const completadasDeHoy = subtareasPreparadas.filter(
         (subtarea) =>
           normalizarEstado(subtarea.estado) === "hecho" &&
-          String(subtarea.fechaObjetivo || "").slice(0, 10) === hoy
+          (
+            String(subtarea.fechaObjetivo || "").slice(0, 10) === hoy ||
+            completadasHoyRef.current.has(String(subtarea.id))
+          )
       );
 
       const tareasDeHoy = [
@@ -2131,7 +2163,7 @@ function Today({ onNotify }) {
       estado: "pospuesto",
       dia_objetivo: fecha,
       horas_estimadas: Number(horas),
-      motivo_posposicion: motivoPosposicion,
+      motivo_posposicion: motivoPosposicion.trim(),
     });
 
     return {
@@ -2140,7 +2172,7 @@ function Today({ onNotify }) {
     };
   };
   const confirmarPosposicion = async () => {
-    if (!tareaPosponer || !nuevaFecha || !motivoPosposicion) {
+    if (!tareaPosponer || !nuevaFecha || !motivoPosposicion.trim()) {
       return;
     }
 
@@ -2257,6 +2289,22 @@ function Today({ onNotify }) {
         estado: estadoNuevo,
       });
 
+      if (estadoNuevo === "hecho") {
+        completadasHoyRef.current.add(String(tarea.id));
+      } else {
+        completadasHoyRef.current.delete(String(tarea.id));
+      }
+      let errorPersistencia = false;
+      try {
+        sessionStorage.setItem(
+          claveCompletadasHoy,
+          JSON.stringify([...completadasHoyRef.current])
+        );
+      } catch (errorAlPersistir) {
+        console.error("No fue posible conservar las gestiones realizadas hoy.", errorAlPersistir);
+        errorPersistencia = true;
+      }
+
       await cargarHoy();
 
       setSeleccionada((actual) =>
@@ -2266,11 +2314,14 @@ function Today({ onNotify }) {
       );
 
       onNotify(
-        estadoNuevo === "hecho"
-          ? "Subtarea marcada como hecha."
-          : estadoNuevo === "pospuesto"
-            ? "Subtarea pospuesta correctamente."
-            : "Subtarea marcada como pendiente."
+        errorPersistencia
+          ? "La ejecución se guardó, pero no fue posible conservarla en esta vista."
+          : estadoNuevo === "hecho"
+            ? "Subtarea marcada como hecha."
+            : estadoNuevo === "pospuesto"
+              ? "Subtarea pospuesta correctamente."
+              : "Subtarea marcada como pendiente.",
+        errorPersistencia ? "error" : "success"
       );
     } catch (errorActual) {
       onNotify(
@@ -3051,7 +3102,7 @@ function Today({ onNotify }) {
             </button>
 
             <div className="postpone-task-summary">
-              <span className="postpone-task-icon">▣</span>
+              <span className="postpone-task-icon">✦</span>
               <div>
                 <small>
                   {tareaPosponer.evento?.titulo || "Evento"}
@@ -3234,9 +3285,9 @@ function Today({ onNotify }) {
 
               <div className="postpone-field">
                 <label htmlFor="motivo-posposicion">
-                  Motivo del imprevisto <span>Requerido</span>
+                  Solicitud de reprogramación <span>Requerida</span>
                 </label>
-                <select
+                <textarea
                   id="motivo-posposicion"
                   value={motivoPosposicion}
                   onChange={(event) =>
@@ -3244,22 +3295,9 @@ function Today({ onNotify }) {
                   }
                   disabled={guardandoPosposicion}
                   required
-                >
-                  <option value="">Selecciona un motivo</option>
-                  <option value="Demora en cotización de proveedor">
-                    Demora en cotización de proveedor
-                  </option>
-                  <option value="Cambio de prioridades">
-                    Cambio de prioridades
-                  </option>
-                  <option value="Disponibilidad del equipo">
-                    Disponibilidad del equipo
-                  </option>
-                  <option value="Imprevisto operativo">
-                    Imprevisto operativo
-                  </option>
-                  <option value="Otro">Otro</option>
-                </select>
+                  maxLength={500}
+                  placeholder="Describe el motivo o la solicitud para reprogramar esta subtarea..."
+                />
               </div>
             </div>
 
@@ -3283,7 +3321,7 @@ function Today({ onNotify }) {
                 onClick={confirmarPosposicion}
                 disabled={
                   !nuevaFecha ||
-                  !motivoPosposicion ||
+                  !motivoPosposicion.trim() ||
                   !horasPosposicion ||
                   guardandoPosposicion
                 }
@@ -4225,16 +4263,27 @@ export default function App() {
   };
 
   useEffect(() => {
+    const rutaInicialNavegador = window.location.pathname;
+    if (
+      !estaAutenticado() &&
+      esRutaPrivada(rutaInicialNavegador) &&
+      rutaInicialNavegador !== "/login"
+    ) {
+      window.history.replaceState({}, "", "/login");
+    }
+
     const onPop = () => {
       const path = window.location.pathname;
 
       if (esRutaPrivada(path) && !estaAutenticado()) {
-        navegar("/login");
+        window.history.replaceState({}, "", "/login");
+        setRuta("/login");
         return;
       }
 
       if (path === "/login" && estaAutenticado()) {
-        navegar("/eventos");
+        window.history.replaceState({}, "", "/eventos");
+        setRuta("/eventos");
         return;
       }
 
