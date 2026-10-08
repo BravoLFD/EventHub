@@ -51,7 +51,7 @@ function obtenerRutaInicial() {
   const path = window.location.pathname;
 
   if (esRutaPublica(path)) {
-    return estaAutenticado() ? "/eventos" : "/login";
+    return estaAutenticado() ? "/eventos" : path;
   }
 
   if (esRutaPrivada(path)) {
@@ -77,7 +77,9 @@ function navegar(path) {
     window.history.pushState({}, "", path);
   }
 
-  window.dispatchEvent(new PopStateEvent("popstate"));
+  window.dispatchEvent(
+    new PopStateEvent("popstate", { state: { eventhubInternalNavigation: true } })
+  );
 }
 
 function formatearFecha(fecha) {
@@ -352,9 +354,9 @@ function Login({ onLogin }) {
             className="login-logo"
           />
 
-          <p className="login-subtitle">
+          <h1 className="login-subtitle">
             INICIAR SESION
-          </p>
+          </h1>
 
           <span className="security-badge">
             🛡 Portal Operativo Seguro
@@ -4272,8 +4274,17 @@ export default function App() {
       window.history.replaceState({}, "", "/login");
     }
 
-    const onPop = () => {
+    const onPop = (event) => {
       const path = window.location.pathname;
+
+      if (
+        ruta === "/registro" &&
+        !event.state?.eventhubInternalNavigation
+      ) {
+        window.history.replaceState({}, "", "/login");
+        setRuta("/login");
+        return;
+      }
 
       if (esRutaPrivada(path) && !estaAutenticado()) {
         window.history.replaceState({}, "", "/login");
