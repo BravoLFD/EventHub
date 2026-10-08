@@ -3256,19 +3256,21 @@ function Today({ onNotify }) {
                   >
                     −
                   </button>
-                  <input
-                    id="horas-reprogramacion"
-                    type="number"
-                    min="0.5"
-                    max="24"
-                    step="0.5"
-                    value={horasPosposicion}
-                    onChange={(event) =>
-                      setHorasPosposicion(Number(event.target.value))
-                    }
-                    disabled={guardandoPosposicion}
-                  />
-                  <span>horas</span>
+                  <span className="postpone-hours-value">
+                    <input
+                      id="horas-reprogramacion"
+                      type="number"
+                      min="0.5"
+                      max="24"
+                      step="0.5"
+                      value={horasPosposicion}
+                      onChange={(event) =>
+                        setHorasPosposicion(Number(event.target.value))
+                      }
+                      disabled={guardandoPosposicion}
+                    />
+                    <span>horas</span>
+                  </span>
                   <button
                     type="button"
                     aria-label="Aumentar duración"
@@ -3287,9 +3289,9 @@ function Today({ onNotify }) {
 
               <div className="postpone-field">
                 <label htmlFor="motivo-posposicion">
-                  Solicitud de reprogramación <span>Requerida</span>
+                  Motivo del imprevisto <span>Requerido</span>
                 </label>
-                <textarea
+                <select
                   id="motivo-posposicion"
                   value={motivoPosposicion}
                   onChange={(event) =>
@@ -3297,9 +3299,22 @@ function Today({ onNotify }) {
                   }
                   disabled={guardandoPosposicion}
                   required
-                  maxLength={500}
-                  placeholder="Describe el motivo o la solicitud para reprogramar esta subtarea..."
-                />
+                >
+                  <option value="">Selecciona el motivo del imprevisto</option>
+                  <option value="Demora en cotización de proveedor">
+                    Demora en cotización de proveedor
+                  </option>
+                  <option value="Cambio de prioridades">
+                    Cambio de prioridades
+                  </option>
+                  <option value="Disponibilidad del equipo">
+                    Disponibilidad del equipo
+                  </option>
+                  <option value="Imprevisto operativo">
+                    Imprevisto operativo
+                  </option>
+                  <option value="Otro">Otro</option>
+                </select>
               </div>
             </div>
 
@@ -3543,13 +3558,6 @@ function Today({ onNotify }) {
               </div>
             )}
             <div className="agenda-modal-actions resolution-actions">
-              <button
-                type="button"
-                className="btn text-button"
-                onClick={() => setEstrategiaSobrecarga("ajustar")}
-              >
-                Ajustar manualmente
-              </button>
               <button
                 type="button"
                 className="btn secondary"
