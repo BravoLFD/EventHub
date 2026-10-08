@@ -137,7 +137,14 @@ function Modal({ title, subtitle, close, children, wide = false }) {
   );
 }
 
-function Header({ ruta, abrirCrear, busquedaEventos, onBuscarEventos }) {
+function Header({
+  ruta,
+  abrirCrear,
+  busquedaEventos,
+  onBuscarEventos,
+  darkMode,
+  onToggleDarkMode,
+}) {
   const [mostrarCerrarSesion, setMostrarCerrarSesion] = useState(false);
 
   const confirmarCerrarSesion = () => {
@@ -204,17 +211,12 @@ function Header({ ruta, abrirCrear, busquedaEventos, onBuscarEventos }) {
         <button
           className="icon-button"
           type="button"
-          aria-label="Notificaciones"
+          aria-label={darkMode ? "Activar modo claro" : "Activar modo oscuro"}
+          aria-pressed={darkMode}
+          title={darkMode ? "Activar modo claro" : "Activar modo oscuro"}
+          onClick={onToggleDarkMode}
         >
-          ☾
-        </button>
-
-        <button
-          className="icon-button"
-          type="button"
-          aria-label="Ayuda"
-        >
-          ?
+          {darkMode ? "☀" : "☾"}
         </button>
 
         <button
@@ -2463,7 +2465,7 @@ function Today({ onNotify }) {
     Number(horasManuales) > Number(conflictoJornada?.horas_disponibles || 0);
   const comenzarResolucion = () => {
     const recomendada = Boolean(conflictoJornada?.fecha_recomendada);
-    setEstrategiaSobrecarga(recomendada ? "mover" : "ajustar");
+    setEstrategiaSobrecarga(recomendada ? "mover" : "manual");
     setHorasManuales(
       Math.min(
         Number(horasPosposicion),
@@ -3540,25 +3542,6 @@ function Today({ onNotify }) {
               )}
               <button
                 type="button"
-                className={`resolution-option ${estrategiaSobrecarga === "ajustar" ? "selected" : ""}`}
-                aria-pressed={estrategiaSobrecarga === "ajustar"}
-                onClick={() => setEstrategiaSobrecarga("ajustar")}
-              >
-                <span className="resolution-radio" />
-                <span>
-                  <strong>
-                    Ajustar a {Number(horasManuales).toFixed(1)}h hoy
-                  </strong>
-                  <small>
-                    Reduce la duración para cumplir el límite de{" "}
-                    {Number(conflictoJornada.limite_horas).toFixed(1)}h.
-                    {" "}Disponibles:{" "}
-                    {Number(conflictoJornada.horas_disponibles).toFixed(1)}h.
-                  </small>
-                </span>
-              </button>
-              <button
-                type="button"
                 className={`resolution-option ${estrategiaSobrecarga === "manual" ? "selected" : ""}`}
                 aria-pressed={estrategiaSobrecarga === "manual"}
                 onClick={() => setEstrategiaSobrecarga("manual")}
@@ -3573,29 +3556,6 @@ function Today({ onNotify }) {
                 </span>
               </button>
             </div>
-            {estrategiaSobrecarga === "ajustar" && (
-              <div className="postpone-field resolution-hours-field">
-                <label htmlFor="horas-ajuste">Duración ajustada (horas)</label>
-                <input
-                  id="horas-ajuste"
-                  type="number"
-                  min="0.5"
-                  max={conflictoJornada.horas_disponibles}
-                  step="0.5"
-                  value={horasManuales}
-                  onFocus={() => {
-                    if (Number(horasManuales) === 0) {
-                      setHorasManuales("");
-                    }
-                  }}
-                  onChange={(event) => {
-                    const valor = event.target.value;
-                    setHorasManuales(valor === "" ? "" : Number(valor));
-                  }}
-                  disabled={guardandoPosposicion}
-                />
-              </div>
-            )}
             {estrategiaSobrecarga === "manual" && (
               <div className="postpone-field resolution-hours-field">
                 <label>Duración manual (horas)</label>
@@ -3656,11 +3616,6 @@ function Today({ onNotify }) {
                   guardandoPosposicion ||
                   (estrategiaSobrecarga === "mover" &&
                     !conflictoJornada.fecha_recomendada) ||
-                  (estrategiaSobrecarga === "ajustar" &&
-                    (!horasManuales ||
-                      horasManuales <= 0 ||
-                      horasManuales >
-                        Number(conflictoJornada.horas_disponibles))) ||
                   (estrategiaSobrecarga === "manual" &&
                     (!horasManuales ||
                       horasManuales <= 0 ||
@@ -4344,6 +4299,7 @@ function RegistroUsuario() {
 }
 export default function App() {
   const [ruta, setRuta] = useState(obtenerRutaInicial);
+  const [darkMode, setDarkMode] = useState(false);
   const [eventos, setEventos] = useState([]);
   const [busquedaEventos, setBusquedaEventos] = useState("");
   const [cargandoEventos, setCargandoEventos] = useState(true);
@@ -4459,12 +4415,14 @@ export default function App() {
     return <OnboardingRegistro />;
   }
 
-  return <main className="app">
+  return <main className={`app${darkMode ? " dark-theme" : ""}`}>
     <Header
       ruta={ruta}
       abrirCrear={() => navegar("/crear-evento")}
       busquedaEventos={busquedaEventos}
       onBuscarEventos={setBusquedaEventos}
+      darkMode={darkMode}
+      onToggleDarkMode={() => setDarkMode((enabled) => !enabled)}
     />
     <Toast type={toast.type} message={toast.message} />
     {ruta === "/eventos" && <Eventos eventos={eventos} cargando={cargandoEventos} error={errorEventos} recargar={cargarEventos} crear={() => navegar("/crear-evento")} busqueda={busquedaEventos} />}

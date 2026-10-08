@@ -6240,3 +6240,194 @@ small {
     min-width: 145px;
   }
 }
+
+/* =========================================================
+   MODO OSCURO
+   ========================================================= */
+
+.app.dark-theme {
+  --ink: #e5e7eb;
+  --muted: #a3adbd;
+  --line: #3a4658;
+  --bg: #111827;
+  --eh-soft: #202b3b;
+  --eh-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+
+  min-height: 100vh;
+  background: #111827;
+  color: var(--ink);
+  color-scheme: dark;
+}
+
+.app.dark-theme header {
+  background: rgba(20, 29, 43, 0.97);
+  border-bottom-color: #354154;
+  box-shadow: 0 3px 18px rgba(0, 0, 0, 0.25);
+}
+
+.app.dark-theme header nav,
+.app.dark-theme .section-tabs {
+  background: #202b3b;
+  border-color: #354154;
+}
+
+.app.dark-theme .nav-link,
+.app.dark-theme .icon-button,
+.app.dark-theme .secondary,
+.app.dark-theme .ghost {
+  color: #d7deea;
+}
+
+.app.dark-theme .nav-link.active,
+.app.dark-theme .secondary,
+.app.dark-theme .ghost {
+  background: #29364a;
+}
+
+.app.dark-theme .search-placeholder,
+.app.dark-theme .card,
+.app.dark-theme .event-info,
+.app.dark-theme .subtask-section,
+.app.dark-theme .subtask-row,
+.app.dark-theme .create-form-card,
+.app.dark-theme .progress-register,
+.app.dark-theme .venue-card,
+.app.dark-theme .configuration-card,
+.app.dark-theme .today-summary-card,
+.app.dark-theme .today-section,
+.app.dark-theme .today-task-card,
+.app.dark-theme .today-side-panel,
+.app.dark-theme .today-upcoming-card,
+.app.dark-theme .today-overdue-card,
+.app.dark-theme .modal,
+.app.dark-theme .postpone-schedule-modal,
+.app.dark-theme .agenda-modal,
+.app.dark-theme .empty-state,
+.app.dark-theme .state-card {
+  background-color: #1b2636;
+  border-color: #354154;
+  color: var(--ink);
+}
+
+.app.dark-theme .search-placeholder input,
+.app.dark-theme .create-form-card input,
+.app.dark-theme .create-form-card textarea,
+.app.dark-theme .create-form-card select,
+.app.dark-theme .configuration-field input,
+.app.dark-theme .postpone-field input,
+.app.dark-theme .postpone-field textarea,
+.app.dark-theme .postpone-field select,
+.app.dark-theme .modal input,
+.app.dark-theme .modal textarea,
+.app.dark-theme .modal select,
+.app.dark-theme .today-filters select {
+  background-color: #141e2c;
+  border-color: #46546a;
+  color: #e5e7eb;
+}
+
+.app.dark-theme .search-placeholder input::placeholder,
+.app.dark-theme input::placeholder,
+.app.dark-theme textarea::placeholder {
+  color: #9aa7ba;
+}
+
+.app.dark-theme .heading h1,
+.app.dark-theme .heading p,
+.app.dark-theme .detail-title-row h1,
+.app.dark-theme .detail-title-row p,
+.app.dark-theme .create-heading h1,
+.app.dark-theme .create-heading p,
+.app.dark-theme .today-section-title h2,
+.app.dark-theme .today-task-card h3,
+.app.dark-theme .today-panel-header h2,
+.app.dark-theme .today-summary-card strong,
+.app.dark-theme .configuration-header h1,
+.app.dark-theme .configuration-card h2,
+.app.dark-theme .agenda-modal h2,
+.app.dark-theme .agenda-modal p,
+.app.dark-theme .modal h2,
+.app.dark-theme .modal p,
+.app.dark-theme .subtasks-heading h2,
+.app.dark-theme .subtask-row h3 {
+  color: var(--ink);
+}
+
+.app.dark-theme .info-block span,
+.app.dark-theme .today-section-title p,
+.app.dark-theme .today-task-meta,
+.app.dark-theme .today-panel-event,
+.app.dark-theme .today-summary-card p,
+.app.dark-theme .configuration-header p,
+.app.dark-theme .configuration-card p,
+.app.dark-theme .agenda-modal-title p,
+.app.dark-theme .agenda-modal>p,
+.app.dark-theme .modal-subtitle,
+.app.dark-theme .subtasks-heading p,
+.app.dark-theme .today-panel-info small,
+.app.dark-theme .today-panel-info strong {
+  color: var(--muted);
+}
+
+.app.dark-theme .section-tabs {
+  border-bottom-color: #354154;
+}
+
+.app.dark-theme .tab {
+  color: #cbd5e1;
+}
+
+.app.dark-theme .tab.active,
+.app.dark-theme .today-action-secondary {
+  background: #29364a;
+  color: #e5e7eb;
+  border-color: #46546a;
+}
+
+.app.dark-theme .today-event-pill {
+  background: #2b3749;
+  color: #cbd5e1;
+}
+
+.app.dark-theme .today-hours {
+  color: #cbd5e1;
+}
+
+.app.dark-theme .subtask-row:hover,
+.app.dark-theme .icon-button:hover,
+.app.dark-theme .secondary:hover,
+.app.dark-theme .ghost:hover {
+  background: #263449;
+}
+
+.app.dark-theme .info-block,
+.app.dark-theme .subtask-row,
+.app.dark-theme .configuration-card-header,
+.app.dark-theme .today-panel-info {
+  border-color: #354154;
+}
+
+.app.dark-theme .today-filter-select,
+.app.dark-theme .agenda-capacity-card,
+.app.dark-theme .resolution-option,
+.app.dark-theme .postpone-hours-control {
+  background-color: #202b3b;
+  border-color: #3a4960;
+  color: #e5e7eb;
+}
+
+.app.dark-theme .resolution-option strong,
+.app.dark-theme .resolution-option small,
+.app.dark-theme .postpone-hours-value > span {
+  color: #d5deeb;
+}
+
+.app.dark-theme .postpone-hours-control input {
+  background: transparent;
+  color: #e5e7eb;
+}
+
+.app.dark-theme .avatar {
+  background: #293b5a;
+  color: #c7d7ff;
+}
