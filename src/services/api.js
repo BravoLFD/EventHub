@@ -94,6 +94,10 @@ export function eliminarEvento(id) {
 
 // --- SUBTAREAS ---
 
+export function obtenerHoy() {
+  return request("/hoy");
+}
+
 export function obtenerSubtareas(eventoId) {
   // Si envías eventoId, lo concatena como query param; si no, trae todas.
   const query = eventoId ? `?evento_id=${encodeURIComponent(eventoId)}` : "";

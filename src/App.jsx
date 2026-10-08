@@ -1,9 +1,7 @@
 import "./App.css";
 import logo_EventHub from "./assets/Logo.png";
 import logo_Jaguar from "./assets/Logo_Jaguar.png";
-import { FaLock, FaEye, FaEyeSlash, FaDoorOpen, FaSyncAlt, } from "react-icons/fa";
-import Google from "./assets/Google.png";
-import Microsoft from "./assets/Microsoft.png";
+import { FaLock, FaEye, FaEyeSlash, FaDoorOpen, FaSyncAlt, FaTrashAlt } from "react-icons/fa";
 import { useEffect, useRef, useState } from "react";
 import {
   actualizarEvento,
@@ -16,6 +14,7 @@ import {
   iniciarSesion,
   registrarUsuario,
   obtenerConfiguracionUsuario,
+  obtenerHoy,
   obtenerEvento,
   obtenerEventos,
   obtenerSubtareas,
@@ -52,7 +51,7 @@ function obtenerRutaInicial() {
   const path = window.location.pathname;
 
   if (esRutaPublica(path)) {
-    return estaAutenticado() ? "/eventos" : "/login";
+    return estaAutenticado() ? "/eventos" : path;
   }
 
   if (esRutaPrivada(path)) {
@@ -78,7 +77,9 @@ function navegar(path) {
     window.history.pushState({}, "", path);
   }
 
-  window.dispatchEvent(new PopStateEvent("popstate"));
+  window.dispatchEvent(
+    new PopStateEvent("popstate", { state: { eventhubInternalNavigation: true } })
+  );
 }
 
 function formatearFecha(fecha) {
@@ -90,7 +91,7 @@ function formatearFecha(fecha) {
 
 function normalizarEstado(estado) {
   const value = String(estado || "pendiente").trim().toLowerCase();
-  if (value === "hecho" || value.includes("complet")) return "hecho";
+  if (value === "hecho" || value === "hecha" || value.includes("complet")) return "hecho";
   if (value === "pospuesto") return "pospuesto";
   return "pendiente";
 }
@@ -136,7 +137,7 @@ function Modal({ title, subtitle, close, children, wide = false }) {
   );
 }
 
-function Header({ ruta, abrirCrear }) {
+function Header({ ruta, abrirCrear, busquedaEventos, onBuscarEventos }) {
   const [mostrarCerrarSesion, setMostrarCerrarSesion] = useState(false);
 
   const confirmarCerrarSesion = () => {
@@ -182,9 +183,23 @@ function Header({ ruta, abrirCrear }) {
 
         <div className="header-spacer" />
 
-        <div className="search-placeholder">
-          ⌕ <span>Buscar eventos, tareas...</span>
-        </div>
+        <form
+          className="search-placeholder"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            navegar("/eventos");
+          }}
+        >
+          <label htmlFor="header-event-search" aria-label="Buscar eventos">⌕</label>
+          <input
+            id="header-event-search"
+            type="search"
+            placeholder="Buscar eventos..."
+            value={busquedaEventos}
+            onChange={(event) => onBuscarEventos(event.target.value)}
+          />
+        </form>
 
         <button
           className="icon-button"
@@ -339,9 +354,9 @@ function Login({ onLogin }) {
             className="login-logo"
           />
 
-          <p className="login-subtitle">
-            PLATAFORMA DE GESTIÓN LOGÍSTICA DE EVENTOS
-          </p>
+          <h1 className="login-subtitle">
+            INICIAR SESION
+          </h1>
 
           <span className="security-badge">
             🛡 Portal Operativo Seguro
@@ -483,44 +498,6 @@ function Login({ onLogin }) {
 
         </form>
 
-        {/* LOGIN CORPORATIVO */}
-        <div className="corporate-divider">
-          <span></span>
-          <p>O CONTINUAR CON SSO CORPORATIVO</p>
-          <span></span>
-        </div>
-
-        <div className="corporate-buttons">
-
-          <button
-            type="button"
-            className="corporate-button"
-            disabled
-            title="Inicio de sesión con Google próximamente"
-          >
-            <img
-              src={Google}
-              alt=""
-              className="corporate-icon"
-            />
-            Google
-          </button>
-
-          <button
-            type="button"
-            className="corporate-button"
-            disabled
-            title="Inicio de sesión con Microsoft próximamente"
-          >
-            <img
-              src={Microsoft}
-              alt=""
-              className="corporate-icon"
-            />
-            Microsoft
-          </button>
-
-        </div>
         {/* REGISTRO */}
         <div className="login-register">
           <span>¿Eres un usuario nuevo?</span>
@@ -573,6 +550,13 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [crearSubtareaInicial, setCrearSubtareaInicial] = useState(false);
+  const [subtarea, setSubtarea] = useState({
+    titulo: "",
+    horas_estimadas: "",
+    estado: "",
+  });
+  const [errorSubtarea, setErrorSubtarea] = useState("");
 
   useEffect(() => {
     onProgress?.({
@@ -589,7 +573,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
       const siguiente = { ...prev, [name]: value };
 
       const pasosCompletados = [
-        Boolean(siguiente.titulo.trim() && siguiente.titulo.trim().length >= 5),
+        Boolean(siguiente.titulo.trim()),
         Boolean(siguiente.fecha),
         Boolean(
           siguiente.horas &&
@@ -604,7 +588,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
         porcentaje: Math.round((pasosCompletados / 4) * 100),
         pasosCompletados,
         pasos: [
-          Boolean(siguiente.titulo.trim() && siguiente.titulo.trim().length >= 5),
+          Boolean(siguiente.titulo.trim()),
           Boolean(siguiente.fecha),
           Boolean(
             siguiente.horas &&
@@ -662,6 +646,26 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
     const next = validar();
     setErrores(next);
     setErrorServidor("");
+    if (crearSubtareaInicial) {
+      const erroresSubtarea = [];
+      if (!subtarea.titulo.trim()) erroresSubtarea.push("indica el nombre");
+      if (
+        !subtarea.horas_estimadas ||
+        Number(subtarea.horas_estimadas) <= 0 ||
+        Number(subtarea.horas_estimadas) > 24 ||
+        !Number.isInteger(Number(subtarea.horas_estimadas))
+      ) {
+        erroresSubtarea.push("indica las horas (de 1 a 24)");
+      }
+      if (!subtarea.estado) erroresSubtarea.push("selecciona el estado");
+      if (!formulario.fecha) erroresSubtarea.push("indica la fecha del evento");
+
+      if (erroresSubtarea.length) {
+        setErrorSubtarea(`Para crear la subtarea, ${erroresSubtarea.join(", ")}.`);
+        return;
+      }
+    }
+    setErrorSubtarea("");
     if (Object.keys(next).length) return;
 
     setEnviando(true);
@@ -672,7 +676,12 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
         horas: Number(formulario.horas),
         usuario_responsable: formulario.usuario_responsable.trim(),
         descripcion: formulario.descripcion.trim() || null,
-      });
+      }, crearSubtareaInicial ? {
+        titulo: subtarea.titulo.trim(),
+        horas_estimadas: Number(subtarea.horas_estimadas),
+        estado: subtarea.estado,
+        dia_objetivo: formulario.fecha,
+      } : null);
     } catch (error) {
       setErrorServidor(error.message);
       setEnviando(false);
@@ -747,6 +756,93 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
       <div className="field-header"><label htmlFor="descripcion">Descripción</label><small>Opcional</small></div>
       <textarea id="descripcion" name="descripcion" value={formulario.descripcion} onChange={actualizar} placeholder="Describe el objetivo, alcance o información útil del evento." />
 
+      <section className="create-event-subtask">
+        <label className="create-event-subtask-toggle">
+          <input
+            type="checkbox"
+            checked={crearSubtareaInicial}
+            onChange={(event) => {
+              setCrearSubtareaInicial(event.target.checked);
+              setErrorSubtarea("");
+            }}
+          />
+          <span>
+            <strong>Crear una subtarea</strong>
+            <small>Se guardará vinculada a este evento y con su fecha de realización.</small>
+          </span>
+        </label>
+        {crearSubtareaInicial && (
+          <div className="create-event-subtask-fields">
+            <div className="field-header">
+              <label htmlFor="evento-subtarea-titulo">Nombre de la subtarea <span>*</span></label>
+            </div>
+            <input
+              id="evento-subtarea-titulo"
+              value={subtarea.titulo}
+              onChange={(event) =>
+                setSubtarea((prev) => ({ ...prev, titulo: event.target.value }))
+              }
+              placeholder="Ej. Preparar presentación"
+            />
+            <div className="form-two-columns">
+              <div>
+                <div className="field-header">
+                  <label htmlFor="evento-subtarea-horas">Horas <span>*</span></label>
+                </div>
+                <input
+                  id="evento-subtarea-horas"
+                  type="number"
+                  min="1"
+                  max="24"
+                  step="1"
+                  value={subtarea.horas_estimadas}
+                  onChange={(event) =>
+                    setSubtarea((prev) => ({
+                      ...prev,
+                      horas_estimadas: event.target.value,
+                    }))
+                  }
+                  placeholder="2"
+                />
+              </div>
+              <div>
+                <div className="field-header">
+                  <label htmlFor="evento-subtarea-estado">Estado</label>
+                </div>
+                <select
+                  id="evento-subtarea-estado"
+                  value={subtarea.estado}
+                  onChange={(event) =>
+                    setSubtarea((prev) => ({ ...prev, estado: event.target.value }))
+                  }
+                >
+                  <option value="">Selecciona un estado</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="hecho">Hecho</option>
+                  <option value="pospuesto">Pospuesto</option>
+                </select>
+              </div>
+            </div>
+            <div className="field-header">
+              <label htmlFor="evento-subtarea-fecha">Fecha límite <span>*</span></label>
+            </div>
+            <input
+              id="evento-subtarea-fecha"
+              type="date"
+              value={formulario.fecha}
+              readOnly
+              disabled={!formulario.fecha}
+              aria-invalid={!formulario.fecha}
+            />
+            <p className="helper">
+              La fecha límite corresponde al día del evento
+              {formulario.fecha ? ` (${formatearFecha(formulario.fecha)})` : "."}
+            </p>
+            {errorSubtarea && <p className="inline-error" role="alert">{errorSubtarea}</p>}
+          </div>
+        )}
+      </section>
+
       {errorServidor && <div className="alert alert-error" role="alert"><b>No fue posible crear el evento.</b><span>{errorServidor}</span></div>}
       <div className="actions">
         <button className="btn ghost" type="button" onClick={onCancelar} disabled={enviando}>Cancelar</button>
@@ -761,10 +857,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
     nombre: "",
     horas: "",
     estado: "pendiente",
-    dia_objetivo:
-      eventoFecha && eventoFecha >= obtenerFechaLocalHoy()
-        ? eventoFecha
-        : obtenerFechaLocalHoy(),
+    dia_objetivo: eventoFecha || "",
   });
 
   const [errores, setErrores] = useState({});
@@ -804,13 +897,8 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
       next.horas = "Las horas deben ser mayor a 0.";
     }
 
-    const hoy = obtenerFechaLocalHoy();
-
     if (!form.dia_objetivo) {
-      next.dia_objetivo = "El día objetivo es requerido.";
-    } else if (form.dia_objetivo < hoy) {
-      next.dia_objetivo =
-        "El día objetivo no puede ser anterior a hoy.";
+      next.dia_objetivo = "La fecha del evento es requerida.";
     }
     setErrores(next);
 
@@ -918,7 +1006,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
 
       <div className="field-header">
         <label htmlFor="sub-dia-objetivo">
-          Día objetivo <span>*</span>
+          Fecha límite <span>*</span>
         </label>
       </div>
 
@@ -926,11 +1014,11 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
         id="sub-dia-objetivo"
         name="dia_objetivo"
         type="date"
-        min={obtenerFechaLocalHoy()}
+        disabled
         value={form.dia_objetivo}
-        onChange={actualizar}
         aria-invalid={Boolean(errores.dia_objetivo)}
       />
+      <p className="helper">La fecha límite corresponde al día del evento.</p>
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
@@ -1019,8 +1107,8 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
   const validar = () => {
     const next = {};
 
-    if (!formulario.titulo.trim()) {
-      next.titulo = "El título es requerido.";
+    if (formulario.titulo.trim().length < 3) {
+      next.titulo = "El título debe tener al menos 3 caracteres.";
     } else if (formulario.titulo.trim().length < 5) {
       next.titulo = "El título debe tener al menos 5 caracteres.";
     }
@@ -1148,17 +1236,12 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
   );
 }
 
-function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
-  const hoy = obtenerFechaLocalHoy();
-
+function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGuardado }) {
   const [form, setForm] = useState({
     nombre: subtarea?.titulo ?? subtarea?.nombre ?? "",
     horas: subtarea?.horas_estimadas ?? subtarea?.horas ?? "",
     estado: normalizarEstado(subtarea?.estado),
-    dia_objetivo:
-      subtarea?.dia_objetivo && subtarea.dia_objetivo >= hoy
-        ? subtarea.dia_objetivo
-        : hoy,
+    dia_objetivo: eventoFecha || subtarea?.dia_objetivo || "",
   });
 
   const [errores, setErrores] = useState({});
@@ -1197,13 +1280,8 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
     ) {
       next.horas = "Las horas deben ser mayor a 0.";
     }
-    const hoy = obtenerFechaLocalHoy();
-
     if (!form.dia_objetivo) {
-      next.dia_objetivo = "El día objetivo es requerido.";
-    } else if (form.dia_objetivo < hoy) {
-      next.dia_objetivo =
-        "El día objetivo no puede ser anterior a hoy.";
+      next.dia_objetivo = "La fecha del evento es requerida.";
     }
     setErrores(next);
 
@@ -1218,7 +1296,7 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
       await actualizarSubtarea(subtarea.id, {
         evento_id: eventoId,
         titulo: form.nombre.trim(),
-        dia_objetivo: form.dia_objetivo,
+        dia_objetivo: eventoFecha || form.dia_objetivo,
         horas_estimadas: Number(form.horas),
         estado: form.estado,
       });
@@ -1306,7 +1384,7 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
 
       <div className="field-header">
         <label htmlFor="edit-sub-dia-objetivo">
-          Día objetivo <span>*</span>
+          Fecha límite <span>*</span>
         </label>
       </div>
 
@@ -1314,11 +1392,11 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
         id="edit-sub-dia-objetivo"
         name="dia_objetivo"
         type="date"
-        min={obtenerFechaLocalHoy()}
+        disabled
         value={form.dia_objetivo}
-        onChange={actualizar}
         aria-invalid={Boolean(errores.dia_objetivo)}
       />
+      <p className="helper">La fecha límite corresponde al día del evento.</p>
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
@@ -1355,7 +1433,14 @@ function EditarSubtareaForm({ subtarea, eventoId, onCancelar, onGuardado }) {
     </form>
   );
 }
-function Eventos({ eventos, cargando, error, recargar, crear }) {
+function Eventos({ eventos, cargando, error, recargar, crear, busqueda }) {
+  const termino = busqueda.trim().toLocaleLowerCase("es");
+  const eventosVisibles = eventos.filter((evento) =>
+    `${evento.titulo || ""} ${evento.descripcion || ""}`
+      .toLocaleLowerCase("es")
+      .includes(termino)
+  );
+
   return (
     <section className="page">
       <div className="heading">
@@ -1364,8 +1449,9 @@ function Eventos({ eventos, cargando, error, recargar, crear }) {
       {cargando && <section className="card state-card"><span className="spinner" /> Cargando eventos...</section>}
       {!cargando && error && <section className="card state-card error-state" role="alert"><div><b>No se pudieron cargar los eventos.</b><p>{error}</p></div><button className="btn ghost" onClick={recargar}>Reintentar</button></section>}
       {!cargando && !error && eventos.length === 0 && <section className="card empty-state"><div className="empty-icon">✦</div><h2>Aún no hay eventos</h2><p>¿Deseas crear tu primer evento?</p><button className="btn primary" onClick={crear}>Crear el primer evento</button></section>}
-      {!cargando && !error && eventos.length > 0 && <section className="event-grid" aria-label="Eventos guardados">
-        {eventos.map((evento) => <article className="event-card card" key={evento.id ?? `${evento.titulo}-${evento.fecha}`}>
+      {!cargando && !error && eventos.length > 0 && eventosVisibles.length === 0 && <section className="card empty-state"><div className="empty-icon">⌕</div><h2>No se encontraron eventos</h2><p>Prueba con otro nombre.</p></section>}
+      {!cargando && !error && eventosVisibles.length > 0 && <section className="event-grid" aria-label="Eventos guardados">
+        {eventosVisibles.map((evento) => <article className="event-card card" key={evento.id ?? `${evento.titulo}-${evento.fecha}`}>
           <div className="event-card-icon">✦</div>
           <div className="event-card-content"><span className="status-pill">● En preparación</span><h2>{evento.titulo}</h2><p>{formatearFecha(evento.fecha)} {evento.horas ? `• ${evento.horas} horas` : ""}</p>{evento.descripcion && <p className="muted-line">{evento.descripcion}</p>}</div>
           <button className="btn secondary" onClick={() => navegar(`/eventos/${evento.id}`)}>Ver detalle</button>
@@ -1449,7 +1535,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
         <div><h1>{evento.titulo}</h1><p>• Información del evento</p></div>
         <div className="title-actions">
           <button className="btn secondary" onClick={() => setModal("edit-event")}>✎ Editar</button>
-          <button className="btn danger-outline" onClick={() => setConfirmacion({ type: "evento" })}>▥ Eliminar</button>
+          <button className="btn danger-outline" onClick={() => setConfirmacion({ type: "evento" })}><FaTrashAlt aria-hidden="true" /> Eliminar</button>
         </div>
       </div>
 
@@ -1474,7 +1560,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
               <span className={`task-check ${estado === "hecho" ? "completed" : ""}`}>{estado === "hecho" ? "✓" : ""}</span>
               <div className="task-main"><h3 className={estado === "hecho" ? "completed-text" : ""}>{titulo}</h3><p>◷ {obtenerHoras(task)} {obtenerHoras(task) === 1 ? "hora" : "horas"}</p></div>
               <span className={`badge ${estado === "hecho" ? "badge-success" : "badge-pending"}`}>{etiquetaEstado(estado)}</span>
-              <div className="row-actions"><button className="btn ghost" onClick={() => setModal({ type: "edit-subtask", item: task })}>✎ Editar</button><button className="btn danger-outline" onClick={() => setConfirmacion({ type: "subtarea", item: task })}>▥ Eliminar</button></div>
+              <div className="row-actions"><button className="btn ghost" onClick={() => setModal({ type: "edit-subtask", item: task })}>✎ Editar</button><button className="btn danger-outline" onClick={() => setConfirmacion({ type: "subtarea", item: task })}><FaTrashAlt aria-hidden="true" /> Eliminar</button></div>
             </article>;
           })}
         </div>}
@@ -1484,7 +1570,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
 
       {modal === "create-subtask" && <Modal title="Crear subtarea" subtitle="Agrega una nueva tarea para este evento." close={() => setModal(null)}><CrearSubtareaForm eventoId={id} eventoFecha={evento.fecha} onCancelar={() => setModal(null)} onCreada={async () => { setModal(null); onNotify("Subtarea creada correctamente"); await cargarSubtareas(); }} /></Modal>}
       {modal === "edit-event" && <Modal title="Editar evento" subtitle="Actualiza la información del evento." close={() => setModal(null)} wide><EditarEventoForm evento={evento} onCancelar={() => setModal(null)} onGuardado={eventoActualizado} /></Modal>}
-      {modal?.type === "edit-subtask" && <Modal title="Editar subtarea" subtitle="Actualiza la información de la subtarea." close={() => setModal(null)}><EditarSubtareaForm subtarea={modal.item} eventoId={id} onCancelar={() => setModal(null)} onGuardado={subtareaActualizada} /></Modal>}
+      {modal?.type === "edit-subtask" && <Modal title="Editar subtarea" subtitle="Actualiza la información de la subtarea." close={() => setModal(null)}><EditarSubtareaForm subtarea={modal.item} eventoId={id} eventoFecha={evento.fecha} onCancelar={() => setModal(null)} onGuardado={subtareaActualizada} /></Modal>}
       {confirmacion?.type === "evento" && <ConfirmModal title="¿Eliminar evento?" message="Esta acción eliminará el evento y sus subtareas. No se puede deshacer." close={() => setConfirmacion(null)} onConfirm={ejecutarEliminacion} loading={eliminando} />}
       {confirmacion?.type === "subtarea" && <ConfirmModal title="¿Eliminar subtarea?" message={`Esta acción eliminará “${obtenerTituloSubtarea(confirmacion.item)}”. No se puede deshacer.`} close={() => setConfirmacion(null)} onConfirm={ejecutarEliminacion} loading={eliminando} />}
     </section>
@@ -1613,7 +1699,7 @@ function CrearEventoPage({ onCancelar, onCrear }) {
           <div className="validation-title"><span>ⓘ</span><h2>Reglas de validación y publicación</h2></div>
           <p>Al registrar un nuevo evento en el workspace de EventHub:</p>
           <ul>
-            <li><b>Título:</b> No puede quedar vacío ni contener menos de 5 caracteres.</li>
+            <li><b>Título:</b> Debe tener al menos 3 caracteres.</li>
             <li><b>Fecha:</b> Debe ser hoy o una fecha futura.</li>
             <li><b>Horas:</b> Debe ser un número entero entre 1 y 24.</li>
             <li><b>Usuario responsable:</b> Debe indicar la persona responsable del evento.</li>
@@ -1819,6 +1905,7 @@ function Today({ onNotify }) {
   const [tareas, setTareas] = useState([]);
   const [gestionesVencidas, setGestionesVencidas] = useState([]);
   const [proximasGestiones, setProximasGestiones] = useState([]);
+  const [subtareasAgenda, setSubtareasAgenda] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [actualizando, setActualizando] = useState(null);
@@ -1831,7 +1918,27 @@ function Today({ onNotify }) {
   const [tareaPosponer, setTareaPosponer] = useState(null);
   const [nuevaFecha, setNuevaFecha] = useState("");
   const [motivoPosposicion, setMotivoPosposicion] = useState("");
+  const [horasPosposicion, setHorasPosposicion] = useState(0);
+  const [conflictoJornada, setConflictoJornada] = useState(null);
+  const [resolverSobrecarga, setResolverSobrecarga] = useState(false);
+  const [estrategiaSobrecarga, setEstrategiaSobrecarga] = useState("mover");
+  const [horasManuales, setHorasManuales] = useState(0);
+  const [mesCalendario, setMesCalendario] = useState(() => {
+    const hoy = new Date();
+    return new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  });
   const [guardandoPosposicion, setGuardandoPosposicion] = useState(false);
+  const claveCompletadasHoy = `eventhub_completadas_hoy_${obtenerFechaLocalHoy()}`;
+  const completadasHoyRef = useRef((() => {
+    try {
+      return new Set(
+        JSON.parse(sessionStorage.getItem(claveCompletadasHoy) || "[]")
+          .map(String)
+      );
+    } catch {
+      return new Set();
+    }
+  })());
 
 
   const cargarHoy = async () => {
@@ -1839,20 +1946,11 @@ function Today({ onNotify }) {
     setError("");
 
     try {
-      const [eventosData, subtareasData] = await Promise.all([
+      const [eventosData, subtareasData, hoyData] = await Promise.all([
         obtenerEventos(),
         obtenerSubtareas(),
+        obtenerHoy(),
       ]);
-
-      let configuracionData = null;
-
-      try {
-        configuracionData = await obtenerConfiguracionUsuario();
-      } catch {
-        configuracionData = {
-          horas_dia: 6,
-        };
-      }
 
       const listaEventos = Array.isArray(eventosData)
         ? eventosData
@@ -1862,7 +1960,9 @@ function Today({ onNotify }) {
         ? subtareasData
         : [];
 
-      const horasConfiguradas = Number(configuracionData?.horas_dia);
+      const horasConfiguradas = Number(
+        hoyData?.resumen?.limite_horas_dia
+      );
 
       if (
         Number.isInteger(horasConfiguradas) &&
@@ -1876,7 +1976,7 @@ function Today({ onNotify }) {
         listaEventos.map((evento) => [String(evento.id), evento])
       );
 
-      const hoy = obtenerFechaLocalHoy();
+      const hoy = hoyData?.fecha || obtenerFechaLocalHoy();
 
       const subtareasPreparadas = listaSubtareas.map((subtarea) => {
         const evento = eventosPorId.get(String(subtarea.evento_id));
@@ -1888,11 +1988,50 @@ function Today({ onNotify }) {
         };
       });
 
-      const tareasDeHoy = subtareasPreparadas
-        .filter(
+      const resolverSubtarea = (subtarea) => ({
+        ...subtareasPreparadas.find(
+          (item) => String(item.id) === String(subtarea.id)
+        ),
+        ...subtarea,
+        evento: eventosPorId.get(String(subtarea.evento_id)),
+        fechaObjetivo: subtarea.dia_objetivo || null,
+      });
+      const gestionesActivas = [
+        ...(hoyData?.vencidas || []),
+        ...(hoyData?.urgentes || []),
+        ...(hoyData?.proximas || []),
+      ].map(resolverSubtarea);
+      const gestionesVencidasBackend = (hoyData?.vencidas || [])
+        .map(resolverSubtarea)
+        .sort((a, b) =>
+          String(a.fechaObjetivo || "").localeCompare(
+            String(b.fechaObjetivo || "")
+          )
+        );
+      const proximasBackend = (hoyData?.proximas || [])
+        .map(resolverSubtarea)
+        .sort((a, b) =>
+          String(a.fechaObjetivo || "").localeCompare(
+            String(b.fechaObjetivo || "")
+          )
+        )
+        .slice(0, 8);
+      const completadasDeHoy = subtareasPreparadas.filter(
+        (subtarea) =>
+          normalizarEstado(subtarea.estado) === "hecho" &&
+          (
+            String(subtarea.fechaObjetivo || "").slice(0, 10) === hoy ||
+            completadasHoyRef.current.has(String(subtarea.id))
+          )
+      );
+
+      const tareasDeHoy = [
+        ...gestionesActivas.filter(
           (subtarea) =>
             String(subtarea.fechaObjetivo || "").slice(0, 10) === hoy
-        )
+        ),
+        ...completadasDeHoy,
+      ]
         .sort((a, b) => {
           const estadoA = normalizarEstado(a.estado);
           const estadoB = normalizarEstado(b.estado);
@@ -1907,45 +2046,16 @@ function Today({ onNotify }) {
         });
 
       setTareas(tareasDeHoy);
-      const vencidas = subtareasPreparadas
-        .filter((subtarea) => {
-          const fecha = String(subtarea.fechaObjetivo || "").slice(0, 10);
-          const estado = normalizarEstado(subtarea.estado);
-
-          return (
-            fecha &&
-            fecha < hoy &&
-            estado !== "hecho"
-          );
-        })
-        .sort((a, b) => {
-          const fechaA = String(a.fechaObjetivo || "").slice(0, 10);
-          const fechaB = String(b.fechaObjetivo || "").slice(0, 10);
-
-          return fechaA.localeCompare(fechaB);
-        });
-
-      setGestionesVencidas(vencidas);
-      const proximas = subtareasPreparadas
-        .filter((subtarea) => {
-          const fecha = String(subtarea.fechaObjetivo || "").slice(0, 10);
-          const estado = normalizarEstado(subtarea.estado);
-
-          return (
-            fecha &&
-            fecha > hoy &&
-            estado !== "hecho"
-          );
-        })
-        .sort((a, b) => {
-          const fechaA = String(a.fechaObjetivo || "").slice(0, 10);
-          const fechaB = String(b.fechaObjetivo || "").slice(0, 10);
-
-          return fechaA.localeCompare(fechaB);
-        })
-        .slice(0, 8);
-
-      setProximasGestiones(proximas);
+      setGestionesVencidas(gestionesVencidasBackend);
+      setProximasGestiones(proximasBackend);
+      setSubtareasAgenda(
+        subtareasPreparadas.filter(
+          (subtarea) =>
+            !["hecho", "completada", "completado", "hecha"].includes(
+              String(subtarea.estado || "").toLowerCase()
+            )
+        )
+      );
 
       if (
         seleccionada &&
@@ -1969,31 +2079,198 @@ function Today({ onNotify }) {
     setTareaPosponer(tarea);
     setNuevaFecha("");
     setMotivoPosposicion("");
+    setConflictoJornada(null);
+    setResolverSobrecarga(false);
+    setHorasPosposicion(obtenerHoras(tarea));
+    setMesCalendario(() => {
+      const hoy = new Date();
+      return new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    });
+  };
+  const reprogramarConValidacionLocal = async (tarea, fecha, horas) => {
+    const horasOtros = subtareasAgenda.reduce((total, subtarea) => {
+      if (
+        String(subtarea.fechaObjetivo || "").slice(0, 10) !== fecha ||
+        String(subtarea.id) === String(tarea.id)
+      ) {
+        return total;
+      }
+      return total + obtenerHoras(subtarea);
+    }, 0);
+    const horasTotales = horasOtros + Number(horas);
+
+    if (horasTotales > capacidadDiaria) {
+      const agenda = subtareasAgenda
+        .filter(
+          (subtarea) =>
+            String(subtarea.fechaObjetivo || "").slice(0, 10) === fecha &&
+            String(subtarea.id) !== String(tarea.id)
+        )
+        .map((subtarea) => ({
+          id: subtarea.id,
+          titulo: obtenerTituloSubtarea(subtarea),
+          evento: subtarea.evento?.titulo || "Evento sin título",
+          horas_estimadas: obtenerHoras(subtarea),
+          es_subtarea_reprogramada: false,
+        }));
+      agenda.push({
+        id: tarea.id,
+        titulo: obtenerTituloSubtarea(tarea),
+        evento: tarea.evento?.titulo || "Evento sin título",
+        horas_estimadas: Number(horas),
+        es_subtarea_reprogramada: true,
+      });
+
+      let fechaRecomendada = null;
+      const fechaBase = new Date(`${fecha}T00:00:00`);
+      for (let dias = 1; dias <= 365; dias += 1) {
+        const candidata = new Date(fechaBase);
+        candidata.setDate(candidata.getDate() + dias);
+        const fechaCandidata = [
+          candidata.getFullYear(),
+          String(candidata.getMonth() + 1).padStart(2, "0"),
+          String(candidata.getDate()).padStart(2, "0"),
+        ].join("-");
+        const horasCandidata = subtareasAgenda.reduce((total, subtarea) => {
+          if (
+            String(subtarea.fechaObjetivo || "").slice(0, 10) !==
+              fechaCandidata ||
+            String(subtarea.id) === String(tarea.id)
+          ) {
+            return total;
+          }
+          return total + obtenerHoras(subtarea);
+        }, 0);
+
+        if (horasCandidata + Number(horas) <= capacidadDiaria) {
+          fechaRecomendada = fechaCandidata;
+          break;
+        }
+      }
+
+      return {
+        actualizada: false,
+        limite_excedido: true,
+        fecha_objetivo: fecha,
+        horas_asignadas: horasTotales,
+        limite_horas: capacidadDiaria,
+        exceso_horas: horasTotales - capacidadDiaria,
+        horas_disponibles: Math.max(0, capacidadDiaria - horasOtros),
+        agenda,
+        fecha_recomendada: fechaRecomendada,
+      };
+    }
+
+    const subtareaActualizada = await actualizarParcialSubtarea(tarea.id, {
+      estado: "pospuesto",
+      dia_objetivo: fecha,
+      horas_estimadas: Number(horas),
+      motivo_posposicion: motivoPosposicion.trim(),
+    });
+
+    return {
+      actualizada: true,
+      subtarea: subtareaActualizada,
+    };
   };
   const confirmarPosposicion = async () => {
-    if (!tareaPosponer || !nuevaFecha) {
+    if (!tareaPosponer || !nuevaFecha || !motivoPosposicion.trim()) {
       return;
     }
 
     setGuardandoPosposicion(true);
 
     try {
-      await actualizarParcialSubtarea(tareaPosponer.id, {
-        estado: "pospuesto",
-        dia_objetivo: nuevaFecha,
-        motivo_posposicion: motivoPosposicion.trim() || null,
-      });
+      const resultado = await reprogramarConValidacionLocal(
+        tareaPosponer,
+        nuevaFecha,
+        horasPosposicion
+      );
+
+      if (resultado?.limite_excedido) {
+        setConflictoJornada(resultado);
+        setHorasManuales(
+          Math.min(
+            Number(horasPosposicion),
+            Number(resultado.horas_disponibles || 0)
+          )
+        );
+        return;
+      }
+
+      if (!resultado?.actualizada) {
+        throw new Error("No fue posible actualizar la subtarea.");
+      }
 
       setTareaPosponer(null);
       setNuevaFecha("");
       setMotivoPosposicion("");
+      setConflictoJornada(null);
+      setResolverSobrecarga(false);
 
       await cargarHoy();
 
-      onNotify("Se reprogramó con éxito.");
+      onNotify("La fecha de la subtarea se actualizó correctamente.");
     } catch (errorActual) {
       onNotify(
-        errorActual.message || "No fue posible reprogramar la subtarea.",
+        errorActual.message || "No fue posible actualizar la subtarea.",
+        "error"
+      );
+    } finally {
+      setGuardandoPosposicion(false);
+    }
+  };
+  const aplicarResolucionSobrecarga = async () => {
+    if (!tareaPosponer || !conflictoJornada) {
+      return;
+    }
+
+    const esMover =
+      estrategiaSobrecarga === "mover" &&
+      Boolean(conflictoJornada.fecha_recomendada);
+    const fecha = esMover
+      ? conflictoJornada.fecha_recomendada
+      : conflictoJornada.fecha_objetivo;
+    const horas = esMover
+      ? Number(horasPosposicion)
+      : Number(horasManuales);
+
+    if (!fecha || !Number.isFinite(horas) || horas <= 0) {
+      return;
+    }
+
+    setGuardandoPosposicion(true);
+
+    try {
+      const resultado = await reprogramarConValidacionLocal(
+        tareaPosponer,
+        fecha,
+        horas
+      );
+
+      if (resultado?.limite_excedido) {
+        setConflictoJornada(resultado);
+        setHorasManuales(
+          Math.min(horas, Number(resultado.horas_disponibles || 0))
+        );
+        setResolverSobrecarga(false);
+        return;
+      }
+
+      if (!resultado?.actualizada) {
+        throw new Error("No fue posible actualizar la subtarea.");
+      }
+
+      setResolverSobrecarga(false);
+      setConflictoJornada(null);
+      setTareaPosponer(null);
+      setNuevaFecha("");
+      setMotivoPosposicion("");
+      await cargarHoy();
+      onNotify("La fecha de la subtarea se actualizó correctamente.");
+    } catch (errorActual) {
+      onNotify(
+        errorActual.message || "No fue posible actualizar la subtarea.",
         "error"
       );
     } finally {
@@ -2014,6 +2291,22 @@ function Today({ onNotify }) {
         estado: estadoNuevo,
       });
 
+      if (estadoNuevo === "hecho") {
+        completadasHoyRef.current.add(String(tarea.id));
+      } else {
+        completadasHoyRef.current.delete(String(tarea.id));
+      }
+      let errorPersistencia = false;
+      try {
+        sessionStorage.setItem(
+          claveCompletadasHoy,
+          JSON.stringify([...completadasHoyRef.current])
+        );
+      } catch (errorAlPersistir) {
+        console.error("No fue posible conservar las gestiones realizadas hoy.", errorAlPersistir);
+        errorPersistencia = true;
+      }
+
       await cargarHoy();
 
       setSeleccionada((actual) =>
@@ -2023,11 +2316,14 @@ function Today({ onNotify }) {
       );
 
       onNotify(
-        estadoNuevo === "hecho"
-          ? "Subtarea marcada como hecha."
-          : estadoNuevo === "pospuesto"
-            ? "Subtarea pospuesta correctamente."
-            : "Subtarea marcada como pendiente."
+        errorPersistencia
+          ? "La ejecución se guardó, pero no fue posible conservarla en esta vista."
+          : estadoNuevo === "hecho"
+            ? "Subtarea marcada como hecha."
+            : estadoNuevo === "pospuesto"
+              ? "Subtarea pospuesta correctamente."
+              : "Subtarea marcada como pendiente.",
+        errorPersistencia ? "error" : "success"
       );
     } catch (errorActual) {
       onNotify(
@@ -2124,6 +2420,46 @@ function Today({ onNotify }) {
   );
 
   const haySobrecarga = horasPendientes > capacidadDiaria;
+  const diasMes = new Date(
+    mesCalendario.getFullYear(),
+    mesCalendario.getMonth() + 1,
+    0
+  ).getDate();
+  const espaciosAntesDeMes = (new Date(
+    mesCalendario.getFullYear(),
+    mesCalendario.getMonth(),
+    1
+  ).getDay() + 6) % 7;
+  const diasCalendario = [
+    ...Array(espaciosAntesDeMes).fill(null),
+    ...Array.from({ length: diasMes }, (_, index) => index + 1),
+  ];
+  const horasProgramadasEn = (fecha) =>
+    subtareasAgenda.reduce((total, subtarea) => {
+      if (
+        String(subtarea.fechaObjetivo || "").slice(0, 10) !== fecha ||
+        String(subtarea.id) === String(tareaPosponer?.id)
+      ) {
+        return total;
+      }
+      return total + obtenerHoras(subtarea);
+    }, 0);
+  const horasAsignadasEnFecha = nuevaFecha
+    ? horasProgramadasEn(nuevaFecha) + Number(horasPosposicion || 0)
+    : 0;
+  const excedeJornadaSeleccionada =
+    nuevaFecha && horasAsignadasEnFecha > capacidadDiaria;
+  const comenzarResolucion = () => {
+    const recomendada = Boolean(conflictoJornada?.fecha_recomendada);
+    setEstrategiaSobrecarga(recomendada ? "mover" : "ajustar");
+    setHorasManuales(
+      Math.min(
+        Number(horasPosposicion),
+        Number(conflictoJornada?.horas_disponibles || 0)
+      )
+    );
+    setResolverSobrecarga(true);
+  };
 
   const renderTarea = (tarea, urgente = false) => {
     const estado = normalizarEstado(tarea.estado);
@@ -2151,16 +2487,16 @@ function Today({ onNotify }) {
               {etiquetaEstado(estado)}
             </span>
 
+            {urgente && !hecha && (
+              <span className="today-urgent-badge">
+                <span aria-hidden="true">⚠</span> Urgente
+              </span>
+            )}
+
             <span className="today-hours">{horasTarea}h</span>
           </div>
 
           <h3>{titulo}</h3>
-
-          {urgente && !hecha && (
-            <div className="today-urgent-message">
-              <strong>⚠ Atención inmediata</strong>
-            </div>
-          )}
 
           <div className="today-task-meta">
             <span>
@@ -2201,7 +2537,7 @@ function Today({ onNotify }) {
                 onClick={() => cambiarEstado(tarea, "hecho")}
               >
                 {actualizando === tarea.id
-                  ? "Guardando..."
+                  ? "Guardando…"
                   : "✓ Marcar como hecho"}
               </button>
 
@@ -2263,7 +2599,7 @@ function Today({ onNotify }) {
 
           {haySobrecarga && (
             <div className="today-overload-message" role="status">
-              Sobrecarga de eventos
+              Límite de jornada excedido
             </div>
           )}
         </div>
@@ -2373,7 +2709,7 @@ function Today({ onNotify }) {
           {cargando && (
             <section className="card state-card">
               <span className="spinner" />
-              Cargando tareas de hoy...
+              Cargando…
             </section>
           )}
 
@@ -2524,7 +2860,7 @@ function Today({ onNotify }) {
                           onClick={() => cambiarEstado(tarea, "hecho")}
                         >
                           {actualizando === tarea.id
-                            ? "Guardando..."
+                            ? "Guardando…"
                             : "✓ Resolver ahora"}
                         </button>
 
@@ -2638,7 +2974,7 @@ function Today({ onNotify }) {
                     onClick={() => cambiarEstado(seleccionada, "hecho")}
                   >
                     {actualizando === seleccionada.id
-                      ? "Guardando..."
+                      ? "Guardando…"
                       : "✓ Registrar ejecución"}
                   </button>
 
@@ -2689,14 +3025,14 @@ function Today({ onNotify }) {
           </span>
         </div>
 
-        {proximasGestiones.length === 0 ? (
+        {proximasGestionesFiltradas.length === 0 ? (
           <div className="today-upcoming-empty">
             <span>✓</span>
-            <p>No tienes próximas gestiones programadas.</p>
+            <p>No hay tareas programadas.</p>
           </div>
         ) : (
           <div className="today-upcoming-list">
-            {proximasGestiones.map((tarea) => {
+              {proximasGestionesFiltradas.map((tarea) => {
               const fecha = String(tarea.fechaObjetivo || "").slice(0, 10);
 
               const fechaTarea = new Date(`${fecha}T00:00:00`);
@@ -2749,10 +3085,10 @@ function Today({ onNotify }) {
           </div>
         )}
       </section>
-      {tareaPosponer && (
+      {tareaPosponer && !conflictoJornada && !resolverSobrecarga && (
         <div className="postpone-overlay">
           <div
-            className="postpone-modal"
+            className="postpone-modal postpone-schedule-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="postpone-title"
@@ -2767,50 +3103,230 @@ function Today({ onNotify }) {
               ×
             </button>
 
-            <h2 id="postpone-title">¡Qué lástima!</h2>
-
-            <p>
-              ¿Deseas contarnos por qué se reprogramará esta gestión?
-              <br />
-              <small>La razón es opcional.</small>
-            </p>
-            <div className="postpone-field">
-              <label htmlFor="nueva-fecha">
-                Nueva fecha <span>*</span>
-              </label>
-
-              <input
-                id="nueva-fecha"
-                type="date"
-                min={obtenerFechaLocalHoy()}
-                value={nuevaFecha}
-                onChange={(event) => setNuevaFecha(event.target.value)}
-                disabled={guardandoPosposicion}
-              />
+            <div className="postpone-task-summary">
+              <span className="postpone-task-icon">✦</span>
+              <div>
+                <small>
+                  {tareaPosponer.evento?.titulo || "Evento"}
+                  {tareaPosponer.evento?.estado
+                    ? ` · ${tareaPosponer.evento.estado}`
+                    : ""}
+                </small>
+                <strong>{obtenerTituloSubtarea(tareaPosponer)}</strong>
+                <span>
+                  Responsable:
+                  {" "}
+                  {tareaPosponer.responsable ||
+                    tareaPosponer.evento?.usuario_responsable ||
+                    "Sin asignar"}
+                </span>
+              </div>
+              <span className="postpone-original-date">
+                ORIGINAL:{" "}
+                <strong>
+                  {formatearFecha(
+                    tareaPosponer.dia_objetivo || tareaPosponer.fechaObjetivo
+                  )}
+                </strong>
+              </span>
             </div>
 
-            <div className="postpone-field">
-              <label htmlFor="motivo-posposicion">
-                Razón <small>(Opcional)</small>
-              </label>
+            <div className="postpone-calendar-heading">
+              <h3>
+                <span aria-hidden="true">▦</span>{" "}
+                {new Intl.DateTimeFormat("es-CO", {
+                  month: "long",
+                  year: "numeric",
+                }).format(mesCalendario)}
+              </h3>
+              <div>
+                <button
+                  type="button"
+                  aria-label="Mes anterior"
+                  disabled={
+                    mesCalendario.getFullYear() === new Date().getFullYear() &&
+                    mesCalendario.getMonth() === new Date().getMonth()
+                  }
+                  onClick={() =>
+                    setMesCalendario(
+                      new Date(
+                        mesCalendario.getFullYear(),
+                        mesCalendario.getMonth() - 1,
+                        1
+                      )
+                    )
+                  }
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="postpone-today-link"
+                  onClick={() => {
+                    const hoy = new Date();
+                    setMesCalendario(
+                      new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+                    );
+                    setNuevaFecha(obtenerFechaLocalHoy());
+                  }}
+                >
+                  Hoy
+                </button>
+                <button
+                  type="button"
+                  aria-label="Mes siguiente"
+                  onClick={() =>
+                    setMesCalendario(
+                      new Date(
+                        mesCalendario.getFullYear(),
+                        mesCalendario.getMonth() + 1,
+                        1
+                      )
+                    )
+                  }
+                >
+                  ›
+                </button>
+              </div>
+            </div>
 
-              <textarea
-                id="motivo-posposicion"
-                value={motivoPosposicion}
-                onChange={(event) =>
-                  setMotivoPosposicion(event.target.value)
+            <div className="postpone-calendar" aria-label="Seleccionar fecha">
+              {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(
+                (dia) => (
+                  <span className="postpone-weekday" key={dia}>
+                    {dia}
+                  </span>
+                )
+              )}
+              {diasCalendario.map((dia, index) => {
+                if (!dia) {
+                  return <span className="postpone-day-spacer" key={`empty-${index}`} />;
                 }
-                placeholder="Cuéntanos brevemente por qué se pospondrá..."
-                maxLength={500}
-                disabled={guardandoPosposicion}
-              />
+
+                const fecha = [
+                  mesCalendario.getFullYear(),
+                  String(mesCalendario.getMonth() + 1).padStart(2, "0"),
+                  String(dia).padStart(2, "0"),
+                ].join("-");
+                const horasDelDia = horasProgramadasEn(fecha);
+                const fechaPasada = fecha < obtenerFechaLocalHoy();
+                const seleccionada = nuevaFecha === fecha;
+                return (
+                  <button
+                    type="button"
+                    className={`postpone-calendar-day ${seleccionada ? "selected" : ""} ${fechaPasada ? "past" : ""} ${horasDelDia >= capacidadDiaria ? "full" : ""}`}
+                    key={fecha}
+                    disabled={fechaPasada || guardandoPosposicion}
+                    aria-pressed={seleccionada}
+                    onClick={() => setNuevaFecha(fecha)}
+                  >
+                    <span>{dia}</span>
+                    <small>{horasDelDia}h/{capacidadDiaria}h</small>
+                  </button>
+                );
+              })}
+            </div>
+
+            {excedeJornadaSeleccionada && (
+              <div className="postpone-overload-inline" role="alert">
+                <strong>⚠</strong>
+                <span>
+                  {formatearFecha(nuevaFecha)} supera tu jornada diaria:{" "}
+                  {horasAsignadasEnFecha.toFixed(1)}h acumuladas frente a{" "}
+                  {capacidadDiaria.toFixed(1)}h de tope.
+                </span>
+              </div>
+            )}
+
+            <div className="postpone-fields-row">
+              <div className="postpone-field postpone-hours-field">
+                <label htmlFor="horas-reprogramacion">
+                  Horas estimadas de ejecución
+                </label>
+                <div className="postpone-hours-control">
+                  <button
+                    type="button"
+                    aria-label="Reducir duración"
+                    disabled={guardandoPosposicion || horasPosposicion <= 0.5}
+                    onClick={() =>
+                      setHorasPosposicion((horas) =>
+                        Math.max(0.5, Number((Number(horas) - 0.5).toFixed(1)))
+                      )
+                    }
+                  >
+                    −
+                  </button>
+                  <span className="postpone-hours-value">
+                    <input
+                      id="horas-reprogramacion"
+                      type="number"
+                      min="0.5"
+                      max="24"
+                      step="0.5"
+                      value={horasPosposicion}
+                      onChange={(event) =>
+                        setHorasPosposicion(Number(event.target.value))
+                      }
+                      disabled={guardandoPosposicion}
+                    />
+                    <span>horas</span>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Aumentar duración"
+                    disabled={guardandoPosposicion || horasPosposicion >= 24}
+                    onClick={() =>
+                      setHorasPosposicion((horas) =>
+                        Math.min(24, Number((Number(horas) + 0.5).toFixed(1)))
+                      )
+                    }
+                  >
+                    +
+                  </button>
+                </div>
+                <small>Base: {obtenerHoras(tareaPosponer)}h</small>
+              </div>
+
+              <div className="postpone-field">
+                <label htmlFor="motivo-posposicion">
+                  Motivo del imprevisto <span>Requerido</span>
+                </label>
+                <select
+                  id="motivo-posposicion"
+                  value={motivoPosposicion}
+                  onChange={(event) =>
+                    setMotivoPosposicion(event.target.value)
+                  }
+                  disabled={guardandoPosposicion}
+                  required
+                >
+                  <option value="">Selecciona el motivo del imprevisto</option>
+                  <option value="Demora en cotización de proveedor">
+                    Demora en cotización de proveedor
+                  </option>
+                  <option value="Cambio de prioridades">
+                    Cambio de prioridades
+                  </option>
+                  <option value="Disponibilidad del equipo">
+                    Disponibilidad del equipo
+                  </option>
+                  <option value="Imprevisto operativo">
+                    Imprevisto operativo
+                  </option>
+                  <option value="Otro">Otro</option>
+                </select>
+              </div>
             </div>
 
             <div className="postpone-actions">
               <button
                 type="button"
                 className="btn secondary"
-                onClick={() => setTareaPosponer(null)}
+                onClick={() => {
+                  setTareaPosponer(null);
+                  setNuevaFecha("");
+                  setMotivoPosposicion("");
+                }}
                 disabled={guardandoPosposicion}
               >
                 Cancelar
@@ -2820,11 +3336,252 @@ function Today({ onNotify }) {
                 type="button"
                 className="btn primary"
                 onClick={confirmarPosposicion}
-                disabled={!nuevaFecha || guardandoPosposicion}
+                disabled={
+                  !nuevaFecha ||
+                  !motivoPosposicion.trim() ||
+                  !horasPosposicion ||
+                  guardandoPosposicion
+                }
               >
                 {guardandoPosposicion
-                  ? "Guardando..."
-                  : "Confirmar reprogramación"}
+                  ? "Reprogramando…"
+                  : "Confirmar y verificar agenda"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {conflictoJornada && !resolverSobrecarga && tareaPosponer && (
+        <div className="postpone-overlay">
+          <div
+            className="agenda-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="limit-title"
+          >
+            <button
+              type="button"
+              className="postpone-close"
+              aria-label="Cerrar"
+              disabled={guardandoPosposicion}
+              onClick={() => {
+                setConflictoJornada(null);
+                setTareaPosponer(null);
+              }}
+            >
+              ×
+            </button>
+            <div className="agenda-modal-title">
+              <span className="agenda-warning-icon">⚠</span>
+              <div>
+                <h2 id="limit-title">Límite de jornada excedido</h2>
+                <p>
+                  El {formatearFecha(conflictoJornada.fecha_objetivo)} superarías
+                  tu jornada máxima configurada ({conflictoJornada.limite_horas}h).
+                </p>
+              </div>
+            </div>
+            <div className="agenda-capacity-card">
+              <div>
+                <strong>
+                  {Number(conflictoJornada.horas_asignadas).toFixed(1)}h{" "}
+                  <small>asignadas</small>
+                </strong>
+                <span>
+                  {Number(conflictoJornada.limite_horas).toFixed(1)}h de tope
+                  {" "}· +{Number(conflictoJornada.exceso_horas).toFixed(1)}h
+                  {" "}de exceso
+                </span>
+              </div>
+              <div className="agenda-capacity-track">
+                <span
+                  style={{
+                    width: `${Math.min(
+                      (Number(conflictoJornada.limite_horas) /
+                        Number(conflictoJornada.horas_asignadas)) *
+                        100,
+                      100
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <small className="agenda-breakdown-label">DESGLOSE DEL DÍA</small>
+            <div className="agenda-breakdown">
+              {conflictoJornada.agenda.map((gestion) => (
+                <div className="agenda-breakdown-item" key={gestion.id}>
+                  <span>
+                    <strong>
+                      {gestion.titulo}
+                      {gestion.es_subtarea_reprogramada && (
+                        <em> · Causa del exceso</em>
+                      )}
+                    </strong>
+                    <small>{gestion.evento}</small>
+                  </span>
+                  <b>{Number(gestion.horas_estimadas).toFixed(1)}h</b>
+                </div>
+              ))}
+            </div>
+            <div className="agenda-modal-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={guardandoPosposicion}
+                onClick={() => {
+                  setConflictoJornada(null);
+                  setTareaPosponer(null);
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={comenzarResolucion}
+                disabled={guardandoPosposicion}
+              >
+                Resolver conflicto →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {conflictoJornada && resolverSobrecarga && tareaPosponer && (
+        <div className="postpone-overlay">
+          <div
+            className="agenda-modal resolution-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resolution-title"
+          >
+            <button
+              type="button"
+              className="postpone-close"
+              aria-label="Cerrar"
+              disabled={guardandoPosposicion}
+              onClick={() => setResolverSobrecarga(false)}
+            >
+              ×
+            </button>
+            <h2 id="resolution-title">Resolver sobrecarga de horas</h2>
+            <p>
+              {formatearFecha(conflictoJornada.fecha_objetivo)} · Exceso de{" "}
+              {Number(conflictoJornada.exceso_horas).toFixed(1)}h. Selecciona
+              cómo deseas equilibrar tu agenda.
+            </p>
+            <div className="agenda-capacity-card compact">
+              <div>
+                <strong>
+                  {Number(conflictoJornada.horas_asignadas).toFixed(1)}h
+                  {" "}asignadas
+                </strong>
+                <span>
+                  {Number(conflictoJornada.limite_horas).toFixed(1)}h de tope
+                  {" "}· +{Number(conflictoJornada.exceso_horas).toFixed(1)}h
+                  {" "}de exceso
+                </span>
+              </div>
+              <div className="agenda-capacity-track">
+                <span
+                  style={{
+                    width: `${Math.min(
+                      (Number(conflictoJornada.limite_horas) /
+                        Number(conflictoJornada.horas_asignadas)) *
+                        100,
+                      100
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <div className="resolution-cause">
+              ⚠ {obtenerTituloSubtarea(tareaPosponer)} · Causa del exceso
+              {" "}({Number(horasPosposicion).toFixed(1)}h)
+            </div>
+            <div className="resolution-options">
+              {conflictoJornada.fecha_recomendada && (
+                <button
+                  type="button"
+                  className={`resolution-option ${estrategiaSobrecarga === "mover" ? "selected" : ""}`}
+                  aria-pressed={estrategiaSobrecarga === "mover"}
+                  onClick={() => setEstrategiaSobrecarga("mover")}
+                >
+                  <span className="resolution-radio" />
+                  <span>
+                    <strong>
+                      Mover a {formatearFecha(conflictoJornada.fecha_recomendada)}
+                      <em>Recomendada</em>
+                    </strong>
+                    <small>
+                      Reubica la gestión completa en el siguiente día con
+                      disponibilidad, sin recortar alcance.
+                    </small>
+                  </span>
+                </button>
+              )}
+              <button
+                type="button"
+                className={`resolution-option ${estrategiaSobrecarga === "ajustar" ? "selected" : ""}`}
+                aria-pressed={estrategiaSobrecarga === "ajustar"}
+                onClick={() => setEstrategiaSobrecarga("ajustar")}
+              >
+                <span className="resolution-radio" />
+                <span>
+                  <strong>
+                    Ajustar a {Number(horasManuales).toFixed(1)}h hoy
+                  </strong>
+                  <small>
+                    Reduce la duración para cumplir el límite de{" "}
+                    {Number(conflictoJornada.limite_horas).toFixed(1)}h.
+                    {" "}Disponibles:{" "}
+                    {Number(conflictoJornada.horas_disponibles).toFixed(1)}h.
+                  </small>
+                </span>
+              </button>
+            </div>
+            {estrategiaSobrecarga === "ajustar" && (
+              <div className="postpone-field resolution-hours-field">
+                <label htmlFor="horas-ajuste">Duración ajustada (horas)</label>
+                <input
+                  id="horas-ajuste"
+                  type="number"
+                  min="0.5"
+                  max={conflictoJornada.horas_disponibles}
+                  step="0.5"
+                  value={horasManuales}
+                  onChange={(event) =>
+                    setHorasManuales(Number(event.target.value))
+                  }
+                  disabled={guardandoPosposicion}
+                />
+              </div>
+            )}
+            <div className="agenda-modal-actions resolution-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={guardandoPosposicion}
+                onClick={() => setResolverSobrecarga(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={aplicarResolucionSobrecarga}
+                disabled={
+                  guardandoPosposicion ||
+                  (estrategiaSobrecarga === "mover" &&
+                    !conflictoJornada.fecha_recomendada) ||
+                  (estrategiaSobrecarga === "ajustar" &&
+                    (!horasManuales ||
+                      horasManuales <= 0 ||
+                      horasManuales >
+                        Number(conflictoJornada.horas_disponibles)))
+                }
+              >
+                {guardandoPosposicion ? "Reprogramando…" : "Aplicar solución"}
               </button>
             </div>
           </div>
@@ -3025,7 +3782,7 @@ function RegistroUsuario() {
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [email, setEmail] = useState("");
-  const [codigoPais, setCodigoPais] = useState("+34");
+  const [codigoPais, setCodigoPais] = useState("+57");
   const [telefono, setTelefono] = useState("");
   const [password, setPassword] = useState("");
   const [confirmarPassword, setConfirmarPassword] = useState("");
@@ -3039,6 +3796,23 @@ function RegistroUsuario() {
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const categoriasPassword = [
+    /[a-z]/.test(password),
+    /[A-Z]/.test(password),
+    /\d/.test(password),
+    /[^A-Za-z0-9]/.test(password),
+  ].filter(Boolean).length;
+  const nivelPassword =
+    password.length >= 12 && categoriasPassword >= 3
+      ? "segura"
+      : password.length >= 8 && categoriasPassword >= 2
+        ? "media"
+        : "debil";
+  const etiquetaPassword = {
+    debil: "Contraseña no segura",
+    media: "Contraseña medianamente segura",
+    segura: "Contraseña segura",
+  }[nivelPassword];
 
   const validar = () => {
     const next = {};
@@ -3157,16 +3931,7 @@ function RegistroUsuario() {
             className="register-logo"
           />
 
-          <p className="register-subtitle">
-            PLATAFORMA DE GESTIÓN LOGÍSTICA DE EVENTOS
-          </p>
-
           <h1>Crea tu cuenta de organizador</h1>
-
-          <p>
-            Centraliza la planificación, cronogramas y logística técnica
-            en una sola plataforma operativa.
-          </p>
         </div>
 
         {/* ERROR SERVIDOR */}
@@ -3267,7 +4032,7 @@ function RegistroUsuario() {
           {/* TELEFONO */}
           <div className="register-field">
             <label htmlFor="register-telefono">
-              Teléfono de contacto de guardia <span>*</span>
+              Teléfono de contacto <span>*</span>
             </label>
 
             <div className="register-phone">
@@ -3289,7 +4054,7 @@ function RegistroUsuario() {
               <input
                 id="register-telefono"
                 type="tel"
-                placeholder="612 345 678"
+                placeholder="300 123 4567"
                 value={telefono}
                 onChange={(event) => {
                   setTelefono(event.target.value);
@@ -3356,7 +4121,19 @@ function RegistroUsuario() {
             </div>
 
             <div className="register-helper-row">
-              <span>◉ Seguridad recomendada</span>
+              <span>{etiquetaPassword}</span>
+            </div>
+            <div
+              className={`password-strength password-strength-${nivelPassword}`}
+              role="meter"
+              aria-label={etiquetaPassword}
+              aria-valuemin="0"
+              aria-valuemax="3"
+              aria-valuenow={nivelPassword === "debil" ? 1 : nivelPassword === "media" ? 2 : 3}
+            >
+              <span />
+              <span />
+              <span />
             </div>
 
             {errores.password && (
@@ -3464,7 +4241,7 @@ function RegistroUsuario() {
 
         {/* LOGIN */}
         <div className="register-login-divider">
-          <span>¿YA TIENES CREDENCIALES?</span>
+          <span>¿ya tienes credenciales?</span>
         </div>
 
         <button
@@ -3482,6 +4259,7 @@ function RegistroUsuario() {
 export default function App() {
   const [ruta, setRuta] = useState(obtenerRutaInicial);
   const [eventos, setEventos] = useState([]);
+  const [busquedaEventos, setBusquedaEventos] = useState("");
   const [cargandoEventos, setCargandoEventos] = useState(true);
   const [errorEventos, setErrorEventos] = useState("");
   const [toast, setToast] = useState({ type: "success", message: "" });
@@ -3495,16 +4273,36 @@ export default function App() {
   };
 
   useEffect(() => {
-    const onPop = () => {
+    const rutaInicialNavegador = window.location.pathname;
+    if (
+      !estaAutenticado() &&
+      esRutaPrivada(rutaInicialNavegador) &&
+      rutaInicialNavegador !== "/login"
+    ) {
+      window.history.replaceState({}, "", "/login");
+    }
+
+    const onPop = (event) => {
       const path = window.location.pathname;
 
+      if (
+        ruta === "/registro" &&
+        !event.state?.eventhubInternalNavigation
+      ) {
+        window.history.replaceState({}, "", "/login");
+        setRuta("/login");
+        return;
+      }
+
       if (esRutaPrivada(path) && !estaAutenticado()) {
-        navegar("/login");
+        window.history.replaceState({}, "", "/login");
+        setRuta("/login");
         return;
       }
 
       if (path === "/login" && estaAutenticado()) {
-        navegar("/eventos");
+        window.history.replaceState({}, "", "/eventos");
+        setRuta("/eventos");
         return;
       }
 
@@ -3527,9 +4325,31 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast({ type, message: "" }), 4000);
   };
 
-  const crear = async (evento) => {
+  const crear = async (evento, subtarea = null) => {
     const creado = await crearEvento(evento);
-    notify("Evento creado correctamente");
+    if (subtarea && creado?.id) {
+      try {
+        await crearSubtarea({
+          ...subtarea,
+          evento_id: creado.id,
+          dia_objetivo: evento.fecha,
+        });
+      } catch (error) {
+        notify(
+          `El evento se creó, pero no fue posible guardar la subtarea: ${error.message}`,
+          "error"
+        );
+        navegar(`/eventos/${creado.id}`);
+        return;
+      }
+    } else if (subtarea) {
+      notify("El evento se creó, pero no se recibió su identificador para guardar la subtarea.", "error");
+      await cargarEventos();
+      navegar("/eventos");
+      return;
+    }
+
+    notify(subtarea ? "Evento y subtarea creados correctamente" : "Evento creado correctamente");
     if (creado?.id) navegar(`/eventos/${creado.id}`);
     else { await cargarEventos(); navegar("/eventos"); }
   };
@@ -3554,9 +4374,14 @@ export default function App() {
   }
 
   return <main className="app">
-    <Header ruta={ruta} abrirCrear={() => navegar("/crear-evento")} />
+    <Header
+      ruta={ruta}
+      abrirCrear={() => navegar("/crear-evento")}
+      busquedaEventos={busquedaEventos}
+      onBuscarEventos={setBusquedaEventos}
+    />
     <Toast type={toast.type} message={toast.message} />
-    {ruta === "/eventos" && <Eventos eventos={eventos} cargando={cargandoEventos} error={errorEventos} recargar={cargarEventos} crear={() => navegar("/crear-evento")} />}
+    {ruta === "/eventos" && <Eventos eventos={eventos} cargando={cargandoEventos} error={errorEventos} recargar={cargarEventos} crear={() => navegar("/crear-evento")} busqueda={busquedaEventos} />}
     {ruta === "/hoy" && <Today onNotify={notify} />}
     {ruta === "/configuracion" && (<ConfiguracionUsuario onNotify={notify} />)}
     {detalleId && <DetalleEvento id={detalleId} volver={() => navegar("/eventos")} onNotify={notify} onEventosChanged={cargarEventos} />}
@@ -3564,4 +4389,3 @@ export default function App() {
   </main>;
 
 }
-
