@@ -2612,17 +2612,9 @@ small {
 /* PANEL LATERAL */
 
 .today-side-panel {
-  position: fixed;
+  position: sticky;
 
   top: 92px;
-
-  right: max(58px, calc((100vw - 1300px) / 2 + 34px));
-
-  width: 310px;
-
-  max-height: calc(100vh - 112px);
-
-  overflow-y: auto;
 
   padding: 20px;
 
@@ -3505,9 +3497,6 @@ small {
 
   .today-side-panel {
     position: static;
-    width: auto;
-    max-height: none;
-    overflow-y: visible;
   }
 
   .create-page {
