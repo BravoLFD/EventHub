@@ -211,10 +211,11 @@ function Header({
         <button
           className="icon-button"
           type="button"
-          aria-label={darkMode ? "Activar modo claro" : "Activar modo oscuro"}
+          aria-label="Modo oscuro temporalmente desactivado"
           aria-pressed={darkMode}
-          title={darkMode ? "Activar modo claro" : "Activar modo oscuro"}
+          title="Modo oscuro temporalmente desactivado"
           onClick={onToggleDarkMode}
+          disabled
         >
           {darkMode ? "☀" : "☾"}
         </button>

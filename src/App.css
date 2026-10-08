@@ -264,6 +264,11 @@ header nav {
   color: #315bd5;
 }
 
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 
 /* AVATAR */
 
