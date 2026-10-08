@@ -6681,3 +6681,26 @@ small {
   background: #e5e7eb;
   color: #111;
 }
+
+.app.dark-theme .postpone-schedule-modal .postpone-actions .btn.primary,
+.app.dark-theme .postpone-schedule-modal .postpone-actions .btn.primary:hover:not(:disabled) {
+  border-color: #315bd5;
+  background: linear-gradient(135deg, #315bd5, #274dc0);
+  color: #fff;
+}
+
+.app.dark-theme .today-empty h3,
+.app.dark-theme .today-empty-icon {
+  color: #8ab4ff;
+}
+
+.app.dark-theme .validation-card>p,
+.app.dark-theme .validation-card ul,
+.app.dark-theme .validation-card li,
+.app.dark-theme .validation-card li:nth-child(4) b {
+  color: #cfcfcf;
+}
+
+.app.dark-theme .validation-card li:nth-child(-n + 3) b {
+  color: #fff;
+}

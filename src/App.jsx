@@ -2516,7 +2516,7 @@ function Today({ onNotify }) {
             <span>
               📅{" "}
               {estado === "pospuesto" && tarea.dia_objetivo
-                ? `Fecha reprogramada: ${new Intl.DateTimeFormat("es-CO", {
+                ? `Fecha de reprogramación: ${new Intl.DateTimeFormat("es-CO", {
                   day: "2-digit",
                   month: "2-digit",
                   year: "numeric",
