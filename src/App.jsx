@@ -2487,16 +2487,16 @@ function Today({ onNotify }) {
               {etiquetaEstado(estado)}
             </span>
 
+            {urgente && !hecha && (
+              <span className="today-urgent-badge">
+                <span aria-hidden="true">⚠</span> Urgente
+              </span>
+            )}
+
             <span className="today-hours">{horasTarea}h</span>
           </div>
 
           <h3>{titulo}</h3>
-
-          {urgente && !hecha && (
-            <div className="today-urgent-message">
-              <strong>⚠ Atención inmediata</strong>
-            </div>
-          )}
 
           <div className="today-task-meta">
             <span>

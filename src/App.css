@@ -2492,6 +2492,18 @@ small {
   font-weight: 700;
 }
 
+.today-urgent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 14px;
+  background: #fff2f0;
+  color: #b9473f;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .today-event-pill {
   background: #f0f3f9;
 
@@ -2543,22 +2555,6 @@ small {
   color: var(--muted);
 
   font-size: 12px;
-}
-
-.today-urgent-message {
-  margin-top: 9px;
-
-  padding: 8px 10px;
-
-  border: 1px solid #f3c7c2;
-
-  border-radius: 7px;
-
-  background: #fff2f0;
-
-  color: #b9473f;
-
-  font-size: 11px;
 }
 
 .today-task-actions {
