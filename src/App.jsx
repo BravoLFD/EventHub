@@ -3276,9 +3276,15 @@ function Today({ onNotify }) {
                       max="24"
                       step="0.5"
                       value={horasPosposicion}
-                      onChange={(event) =>
-                        setHorasPosposicion(Number(event.target.value))
-                      }
+                      onFocus={() => {
+                        if (Number(horasPosposicion) === 0) {
+                          setHorasPosposicion("");
+                        }
+                      }}
+                      onChange={(event) => {
+                        const valor = event.target.value;
+                        setHorasPosposicion(valor === "" ? "" : Number(valor));
+                      }}
                       disabled={guardandoPosposicion}
                     />
                     <span>horas</span>
@@ -3577,9 +3583,15 @@ function Today({ onNotify }) {
                   max={conflictoJornada.horas_disponibles}
                   step="0.5"
                   value={horasManuales}
-                  onChange={(event) =>
-                    setHorasManuales(Number(event.target.value))
-                  }
+                  onFocus={() => {
+                    if (Number(horasManuales) === 0) {
+                      setHorasManuales("");
+                    }
+                  }}
+                  onChange={(event) => {
+                    const valor = event.target.value;
+                    setHorasManuales(valor === "" ? "" : Number(valor));
+                  }}
                   disabled={guardandoPosposicion}
                 />
               </div>
