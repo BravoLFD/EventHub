@@ -5680,6 +5680,23 @@ small {
   max-width: 180px;
 }
 
+.resolution-hours-field .postpone-hours-control {
+  max-width: 240px;
+}
+
+.resolution-hours-field .postpone-hours-value strong {
+  color: #2146c7;
+  font-size: 14px;
+}
+
+.resolution-hours-alert {
+  display: block;
+  margin-top: 7px;
+  color: #b42318;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .resolution-actions {
   justify-content: flex-end;
   padding-top: 13px;

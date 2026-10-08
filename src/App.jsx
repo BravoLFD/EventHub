@@ -2238,6 +2238,16 @@ function Today({ onNotify }) {
     if (!fecha || !Number.isFinite(horas) || horas <= 0) {
       return;
     }
+    if (
+      estrategiaSobrecarga === "manual" &&
+      horasManualesExcedenDisponibles
+    ) {
+      onNotify(
+        "Las horas ingresadas superan las horas disponibles de la jornada.",
+        "error"
+      );
+      return;
+    }
 
     setGuardandoPosposicion(true);
 
@@ -2449,6 +2459,8 @@ function Today({ onNotify }) {
     : 0;
   const excedeJornadaSeleccionada =
     nuevaFecha && horasAsignadasEnFecha > capacidadDiaria;
+  const horasManualesExcedenDisponibles =
+    Number(horasManuales) > Number(conflictoJornada?.horas_disponibles || 0);
   const comenzarResolucion = () => {
     const recomendada = Boolean(conflictoJornada?.fecha_recomendada);
     setEstrategiaSobrecarga(recomendada ? "mover" : "ajustar");
@@ -3539,6 +3551,21 @@ function Today({ onNotify }) {
                   </small>
                 </span>
               </button>
+              <button
+                type="button"
+                className={`resolution-option ${estrategiaSobrecarga === "manual" ? "selected" : ""}`}
+                aria-pressed={estrategiaSobrecarga === "manual"}
+                onClick={() => setEstrategiaSobrecarga("manual")}
+              >
+                <span className="resolution-radio" />
+                <span>
+                  <strong>Ajustar manualmente</strong>
+                  <small>
+                    Aumenta o disminuye las horas y verifica que no superen la
+                    disponibilidad de la jornada.
+                  </small>
+                </span>
+              </button>
             </div>
             {estrategiaSobrecarga === "ajustar" && (
               <div className="postpone-field resolution-hours-field">
@@ -3555,6 +3582,49 @@ function Today({ onNotify }) {
                   }
                   disabled={guardandoPosposicion}
                 />
+              </div>
+            )}
+            {estrategiaSobrecarga === "manual" && (
+              <div className="postpone-field resolution-hours-field">
+                <label>Duración manual (horas)</label>
+                <div
+                  className="postpone-hours-control"
+                  aria-label="Ajustar duración manual"
+                >
+                  <button
+                    type="button"
+                    aria-label="Disminuir media hora"
+                    onClick={() =>
+                      setHorasManuales((horas) =>
+                        Math.max(0.5, Number(horas) - 0.5)
+                      )
+                    }
+                    disabled={guardandoPosposicion || horasManuales <= 0.5}
+                  >
+                    −
+                  </button>
+                  <span className="postpone-hours-value" aria-live="polite">
+                    <strong>{Number(horasManuales).toFixed(1)}</strong>
+                    <span>horas</span>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Aumentar media hora"
+                    onClick={() =>
+                      setHorasManuales((horas) => Number(horas) + 0.5)
+                    }
+                    disabled={guardandoPosposicion}
+                  >
+                    +
+                  </button>
+                </div>
+                {horasManualesExcedenDisponibles && (
+                  <small className="resolution-hours-alert" role="alert">
+                    ⚠ Las horas superan las{" "}
+                    {Number(conflictoJornada.horas_disponibles).toFixed(1)}h
+                    disponibles. Disminuye la duración para continuar.
+                  </small>
+                )}
               </div>
             )}
             <div className="agenda-modal-actions resolution-actions">
@@ -3578,7 +3648,11 @@ function Today({ onNotify }) {
                     (!horasManuales ||
                       horasManuales <= 0 ||
                       horasManuales >
-                        Number(conflictoJornada.horas_disponibles)))
+                        Number(conflictoJornada.horas_disponibles))) ||
+                  (estrategiaSobrecarga === "manual" &&
+                    (!horasManuales ||
+                      horasManuales <= 0 ||
+                      horasManualesExcedenDisponibles))
                 }
               >
                 {guardandoPosposicion ? "Reprogramando…" : "Aplicar solución"}
