@@ -2123,8 +2123,8 @@ function Today({ onNotify }) {
         es_subtarea_reprogramada: true,
       });
 
-      let fechaRecomendada = null;
       const fechaBase = new Date(`${fecha}T00:00:00`);
+      const fechasFuturas = [];
       for (let dias = 1; dias <= 365; dias += 1) {
         const candidata = new Date(fechaBase);
         candidata.setDate(candidata.getDate() + dias);
@@ -2133,22 +2133,34 @@ function Today({ onNotify }) {
           String(candidata.getMonth() + 1).padStart(2, "0"),
           String(candidata.getDate()).padStart(2, "0"),
         ].join("-");
-        const horasCandidata = subtareasAgenda.reduce((total, subtarea) => {
-          if (
-            String(subtarea.fechaObjetivo || "").slice(0, 10) !==
-              fechaCandidata ||
-            String(subtarea.id) === String(tarea.id)
-          ) {
-            return total;
-          }
-          return total + obtenerHoras(subtarea);
-        }, 0);
+        const horasCandidata = subtareasAgenda.reduce(
+          (total, subtarea) =>
+            String(subtarea.fechaObjetivo || "").slice(0, 10) ===
+              fechaCandidata &&
+            String(subtarea.id) !== String(tarea.id)
+              ? total + obtenerHoras(subtarea)
+              : total,
+          0
+        );
 
-        if (horasCandidata + Number(horas) <= capacidadDiaria) {
-          fechaRecomendada = fechaCandidata;
-          break;
-        }
+        fechasFuturas.push({
+          fecha: fechaCandidata,
+          horasAsignadas: horasCandidata,
+        });
       }
+      const fechasConCapacidad = fechasFuturas.filter(
+        (candidata) =>
+          candidata.horasAsignadas + Number(horas) <= capacidadDiaria
+      );
+      const fechasParaRecomendar = fechasConCapacidad.length
+        ? fechasConCapacidad
+        : fechasFuturas;
+      const fechaRecomendada = fechasParaRecomendar.reduce(
+        (menosCargada, candidata) =>
+          candidata.horasAsignadas < menosCargada.horasAsignadas
+            ? candidata
+            : menosCargada
+      ).fecha;
 
       return {
         actualizada: false,
@@ -3520,26 +3532,24 @@ function Today({ onNotify }) {
               {" "}({Number(horasPosposicion).toFixed(1)}h)
             </div>
             <div className="resolution-options">
-              {conflictoJornada.fecha_recomendada && (
-                <button
-                  type="button"
-                  className={`resolution-option ${estrategiaSobrecarga === "mover" ? "selected" : ""}`}
-                  aria-pressed={estrategiaSobrecarga === "mover"}
-                  onClick={() => setEstrategiaSobrecarga("mover")}
-                >
-                  <span className="resolution-radio" />
-                  <span>
-                    <strong>
-                      Mover a {formatearFecha(conflictoJornada.fecha_recomendada)}
-                      <em>Recomendada</em>
-                    </strong>
-                    <small>
-                      Reubica la gestión completa en el siguiente día con
-                      disponibilidad, sin recortar alcance.
-                    </small>
-                  </span>
-                </button>
-              )}
+              <button
+                type="button"
+                className={`resolution-option ${estrategiaSobrecarga === "mover" ? "selected" : ""}`}
+                aria-pressed={estrategiaSobrecarga === "mover"}
+                onClick={() => setEstrategiaSobrecarga("mover")}
+              >
+                <span className="resolution-radio" />
+                <span>
+                  <strong>
+                    Mover a {formatearFecha(conflictoJornada.fecha_recomendada)}
+                    <em>Recomendada</em>
+                  </strong>
+                  <small>
+                    Reubica la gestión completa al día con menor carga que
+                    permita mantener su duración.
+                  </small>
+                </span>
+              </button>
               <button
                 type="button"
                 className={`resolution-option ${estrategiaSobrecarga === "manual" ? "selected" : ""}`}
