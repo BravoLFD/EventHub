@@ -6431,3 +6431,156 @@ small {
   background: #293b5a;
   color: #c7d7ff;
 }
+
+.app.dark-theme .detail-page .btn.danger-outline,
+.app.dark-theme .detail-page .btn.danger-outline:hover {
+  border-color: #a3301a;
+  background: #a3301a;
+  color: #fff;
+}
+
+.app.dark-theme .detail-page .info-icon,
+.app.dark-theme .detail-page .info-block:hover .info-icon {
+  background: #194aa8;
+  color: #fff;
+  box-shadow: none;
+}
+
+.app.dark-theme .today-filters {
+  border-color: #194aa8;
+  background: #194aa8;
+}
+
+.app.dark-theme .today-filter-search span,
+.app.dark-theme .today-filter-search input,
+.app.dark-theme .today-filter-search input::placeholder,
+.app.dark-theme .today-filter-select span,
+.app.dark-theme .today-filter-select select {
+  color: #fff;
+}
+
+.app.dark-theme .today-filter-select {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: transparent;
+}
+
+.app.dark-theme .today-filter-select option {
+  background: #194aa8;
+  color: #fff;
+}
+
+.app.dark-theme .today-filter-reset,
+.app.dark-theme .today-filter-reset:hover {
+  background: transparent;
+  color: #fff;
+}
+
+.app.dark-theme .today-refresh-button,
+.app.dark-theme .today-refresh-button:hover:not(:disabled) {
+  color: #fff;
+}
+
+.app.dark-theme .today-upcoming-section {
+  border-color: #354154;
+  background: #1b2636;
+  color: var(--ink);
+}
+
+.app.dark-theme .today-capacity {
+  border-color: #194aa8;
+  background: #194aa8;
+  color: #fff;
+}
+
+.app.dark-theme .today-capacity-track {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.app.dark-theme .today-capacity-track span {
+  background: #8ab4ff;
+}
+
+.app.dark-theme .today-action-secondary,
+.app.dark-theme .today-panel-secondary,
+.app.dark-theme .today-panel-cancel {
+  border-color: #194aa8;
+  background: #194aa8;
+  color: #fff;
+}
+
+.app.dark-theme .today-action-secondary:hover:not(:disabled),
+.app.dark-theme .today-panel-secondary:hover:not(:disabled),
+.app.dark-theme .today-panel-cancel:hover:not(:disabled) {
+  border-color: #245dc4;
+  background: #245dc4;
+  color: #fff;
+}
+
+.app.dark-theme .postpone-task-summary {
+  background: #194aa8;
+  color: #fff;
+}
+
+.app.dark-theme .postpone-task-summary small,
+.app.dark-theme .postpone-task-summary>span:last-child,
+.app.dark-theme .postpone-task-summary>div>span,
+.app.dark-theme .postpone-task-summary strong,
+.app.dark-theme .postpone-original-date strong {
+  color: #fff;
+}
+
+.app.dark-theme .postpone-task-icon {
+  background: #2c62bb;
+  color: #fff;
+}
+
+.app.dark-theme .postpone-calendar-heading h3,
+.app.dark-theme .postpone-calendar-heading button {
+  color: #fff;
+}
+
+.app.dark-theme .postpone-calendar-heading button:hover:not(:disabled) {
+  background: #194aa8;
+  color: #fff;
+}
+
+.app.dark-theme .postpone-calendar-heading .postpone-today-link {
+  color: #8ab4ff;
+}
+
+.app.dark-theme .postpone-weekday {
+  color: #d5deeb;
+}
+
+.app.dark-theme .postpone-calendar-day,
+.app.dark-theme .postpone-calendar-day.full:not(.selected) {
+  border-color: #315ca8;
+  background: #194aa8;
+  color: #fff;
+}
+
+.app.dark-theme .postpone-calendar-day small {
+  color: #dbeafe;
+}
+
+.app.dark-theme .postpone-calendar-day.selected {
+  border-color: #8ab4ff;
+  background: #8ab4ff;
+  color: #10264b;
+}
+
+.app.dark-theme .postpone-calendar-day.selected small {
+  color: #10264b;
+}
+
+.app.dark-theme .postpone-calendar-day.past,
+.app.dark-theme .postpone-calendar-day.past small {
+  border-color: #34445f;
+  background: #25334a;
+  color: #a3adbd;
+}
+
+.app.dark-theme .agenda-breakdown-item strong,
+.app.dark-theme .agenda-breakdown-item>b {
+  color: #fff;
+}
