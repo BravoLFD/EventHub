@@ -2592,6 +2592,7 @@ function Today({ onNotify }) {
             </span>
 
             {estado === "pospuesto" && tarea.motivo_posposicion && (
+              {" "}
               <span>
                 Razón: "{tarea.motivo_posposicion}"
               </span>
