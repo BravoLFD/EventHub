@@ -1897,6 +1897,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const [conflicto, setConflicto] = useState(null);
 
   const actualizar = (event) => {
     const { name, value } = event.target;
@@ -1926,9 +1927,10 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
     if (
       !form.horas ||
       Number(form.horas) <= 0 ||
+      Number(form.horas) > 24 ||
       !Number.isInteger(Number(form.horas))
     ) {
-      next.horas = "Las horas deben ser mayor a 0.";
+      next.horas = "Las horas deben ser un número entero entre 1 y 24.";
     }
     if (
       !esFechaSubtareaValida(form.dia_objetivo, eventoFecha)
@@ -1946,6 +1948,39 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
     setErrorServidor("");
 
     try {
+      if (normalizarEstado(form.estado) !== "hecho") {
+        const [subtareasData, hoyData] = await Promise.all([
+          obtenerSubtareas(),
+          obtenerHoy(),
+        ]);
+        const limite = Number(hoyData?.resumen?.limite_horas_dia);
+        const capacidadDiaria =
+          Number.isInteger(limite) && limite > 0 ? limite : 6;
+        const agenda = (Array.isArray(subtareasData) ? subtareasData : [])
+          .map((item) => ({
+            ...item,
+            fechaObjetivo: item.dia_objetivo || null,
+          }))
+          .filter((item) => normalizarEstado(item.estado) !== "hecho");
+        const conflictoCapacidad = construirConflictoSobrecarga({
+          agenda,
+          fecha: form.dia_objetivo,
+          horas: Number(form.horas),
+          capacidadDiaria,
+          excluirId: subtarea.id,
+          fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
+          titulo: form.nombre.trim(),
+          eventoTitulo: "Evento sin título",
+          idSubtareaCausa: subtarea.id,
+        });
+
+        if (conflictoCapacidad) {
+          setConflicto(conflictoCapacidad);
+          setGuardando(false);
+          return;
+        }
+      }
+
       await actualizarSubtarea(subtarea.id, {
         evento_id: eventoId,
         titulo: form.nombre.trim(),
@@ -2002,6 +2037,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
             name="horas"
             type="number"
             min="1"
+            max="24"
             step="1"
             value={form.horas}
             onChange={actualizar}
@@ -2086,6 +2122,17 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
           {guardando ? "Guardando…" : "Guardar cambios"}
         </button>
       </div>
+      {conflicto && (
+        <ModalResolucionSobrecarga
+          conflicto={conflicto}
+          titulo="Límite de jornada excedido"
+          descripcion={`La subtarea supera la capacidad diaria configurada para el ${formatearFecha(conflicto.fecha_objetivo)}.`}
+          permitirResolucion={false}
+          mostrarAcciones={false}
+          guardando={false}
+          onCancelar={() => setConflicto(null)}
+        />
+      )}
     </form>
   );
 }
@@ -2592,6 +2639,7 @@ function ModalResolucionSobrecarga({
   elementos,
   mostrarCapacidad = true,
   permitirResolucion = true,
+  mostrarAcciones = true,
   onAccion,
   onCancelar,
   guardando,
@@ -2718,24 +2766,26 @@ function ModalResolucionSobrecarga({
                 </div>
               </>
             )}
-            <div className="agenda-modal-actions">
-              <button
-                type="button"
-                className="btn secondary"
-                disabled={guardando}
-                onClick={onCancelar}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn primary"
-                onClick={permitirResolucion ? comenzarResolucion : onAccion}
-                disabled={guardando}
-              >
-                {etiquetaAccion || (permitirResolucion ? "Resolver conflicto →" : "Continuar")}
-              </button>
-            </div>
+            {mostrarAcciones && (
+              <div className="agenda-modal-actions">
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={guardando}
+                  onClick={onCancelar}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={permitirResolucion ? comenzarResolucion : onAccion}
+                  disabled={guardando}
+                >
+                  {etiquetaAccion || (permitirResolucion ? "Resolver conflicto →" : "Continuar")}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
