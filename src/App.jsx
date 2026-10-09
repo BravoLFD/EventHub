@@ -169,6 +169,7 @@ function construirConflictoSobrecarga({
   titulo,
   eventoTitulo,
   subtareasNuevas = [],
+  idSubtareaCausa,
 }) {
   const horasOtros = agenda.reduce((total, subtarea) => {
     if (
@@ -286,9 +287,13 @@ function construirConflictoSobrecarga({
     horas_asignadas: horasTotales,
     limite_horas: capacidadDiaria,
     exceso_horas: horasTotales - capacidadDiaria,
-    horas_disponibles: Math.max(0, capacidadDiaria - horasOtros),
+    horas_disponibles: Math.max(
+      0,
+      capacidadDiaria - horasOtros - horasNuevas
+    ),
     agenda: detalle,
     fecha_recomendada: fechaRecomendada,
+    id_subtarea_causa: idSubtareaCausa,
   };
 }
 
@@ -303,16 +308,50 @@ function prepararNuevasParaConflicto(subtareasNuevas, fechaActual, fechaEvento) 
   }));
 }
 
-function agruparNuevasPorFecha(nuevasPreparadas) {
-  return nuevasPreparadas.reduce((agrupado, nueva) => {
-    if (!nueva.fechaObjetivo) {
-      return agrupado;
+function buscarConflictoSubtareasNuevas({
+  agenda,
+  subtareasNuevas,
+  capacidadDiaria,
+  eventoTitulo,
+  fechaLimite,
+}) {
+  const nuevasPorFecha = new Map();
+
+  subtareasNuevas.forEach((subtarea) => {
+    if (
+      !subtarea.fechaObjetivo ||
+      normalizarEstado(subtarea.estado) === "hecho"
+    ) {
+      return;
     }
 
-    agrupado[nueva.fechaObjetivo] =
-      (agrupado[nueva.fechaObjetivo] || 0) + obtenerHoras(nueva);
-    return agrupado;
-  }, {});
+    const fecha = String(subtarea.fechaObjetivo).slice(0, 10);
+    nuevasPorFecha.set(fecha, [
+      ...(nuevasPorFecha.get(fecha) || []),
+      subtarea,
+    ]);
+  });
+
+  for (const [fecha, subtareasDelDia] of nuevasPorFecha) {
+    const subtareaCausa = subtareasDelDia[subtareasDelDia.length - 1];
+    const conflicto = construirConflictoSobrecarga({
+      agenda,
+      fecha,
+      horas: obtenerHoras(subtareaCausa),
+      capacidadDiaria,
+      titulo: subtareaCausa.titulo,
+      eventoTitulo,
+      fechaLimite,
+      subtareasNuevas: subtareasDelDia.slice(0, -1),
+      idSubtareaCausa: subtareaCausa.id,
+    });
+
+    if (conflicto) {
+      return conflicto;
+    }
+  }
+
+  return null;
 }
 
 function Toast({ type = "success", message }) {
@@ -781,30 +820,27 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   };
 
   const cargarAgenda = async () => {
-    try {
-      const [subtareasData, hoyData] = await Promise.all([
-        obtenerSubtareas(),
-        obtenerHoy(),
-      ]);
+    const [subtareasData, hoyData] = await Promise.all([
+      obtenerSubtareas(),
+      obtenerHoy(),
+    ]);
 
-      const lista = Array.isArray(subtareasData) ? subtareasData : [];
-      const agendaCargada = lista
-        .map((item) => ({
-          ...item,
-          fechaObjetivo: item.dia_objetivo || null,
-        }))
-        .filter((item) => normalizarEstado(item.estado) !== "hecho");
+    const lista = Array.isArray(subtareasData) ? subtareasData : [];
+    const agendaCargada = lista
+      .map((item) => ({
+        ...item,
+        fechaObjetivo: item.dia_objetivo || null,
+      }))
+      .filter((item) => normalizarEstado(item.estado) !== "hecho");
 
-      const limite = Number(hoyData?.resumen?.limite_horas_dia);
+    const limite = Number(hoyData?.resumen?.limite_horas_dia);
+    const capacidadCargada =
+      Number.isInteger(limite) && limite > 0 ? limite : 6;
 
-      setAgenda(agendaCargada);
-      setCapacidad(Number.isInteger(limite) && limite > 0 ? limite : 6);
+    setAgenda(agendaCargada);
+    setCapacidad(capacidadCargada);
 
-      return { agenda: agendaCargada, capacidad: Number.isInteger(limite) && limite > 0 ? limite : 6 };
-    } catch (error) {
-      console.error("Error al verificar la agenda:", error);
-      return { agenda, capacidad };
-    }
+    return { agenda: agendaCargada, capacidad: capacidadCargada };
   };
 
   useEffect(() => {
@@ -948,8 +984,8 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   };
 
   const aplicarDecisionSobrecarga = async ({ fecha, horas }) => {
-    const adjusted = subtareas.map((item, indice) =>
-      indice === 0
+    const adjusted = subtareas.map((item) =>
+      String(item.id) === String(conflicto?.id_subtarea_causa)
         ? { ...item, dia_objetivo: fecha, horas_estimadas: horas }
         : item
     );
@@ -958,33 +994,17 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
       formulario.fecha,
       formulario.fecha
     );
-    const primera = nuevas[0];
-    const porFecha = agruparNuevasPorFecha(nuevas);
+    const conflictoRestante = buscarConflictoSubtareasNuevas({
+      agenda,
+      subtareasNuevas: nuevas,
+      capacidadDiaria: capacidad,
+      eventoTitulo: formulario.titulo.trim(),
+      fechaLimite: obtenerFechaLimiteSubtarea(formulario.fecha),
+    });
 
-    for (const [fechaNueva, horasDia] of Object.entries(porFecha)) {
-      const horasDelDia =
-        agenda.reduce((total, item) => {
-          if (String(item.fechaObjetivo || "").slice(0, 10) !== fechaNueva) {
-            return total;
-          }
-          return total + obtenerHoras(item);
-        }, 0) + horasDia;
-
-      if (horasDelDia > capacidad) {
-        setConflicto(
-          construirConflictoSobrecarga({
-            agenda,
-            fecha: fechaNueva,
-            horas: obtenerHoras(primera),
-            capacidadDiaria: capacidad,
-            titulo: primera.titulo,
-            eventoTitulo: formulario.titulo.trim(),
-            fechaLimite: obtenerFechaLimiteSubtarea(formulario.fecha),
-            subtareasNuevas: nuevas.slice(1),
-          })
-        );
-        return;
-      }
+    if (conflictoRestante) {
+      setConflicto(conflictoRestante);
+      return;
     }
 
     await guardarEvento(
@@ -1020,40 +1040,37 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
       return;
     }
 
-    const { agenda: agendaCargada, capacidad: capacidadCargada } =
-      await cargarAgenda();
+    let agendaCargada;
+    let capacidadCargada;
+    try {
+      const cargada = await cargarAgenda();
+      agendaCargada = cargada.agenda;
+      capacidadCargada = cargada.capacidad;
+    } catch (error) {
+      console.error("Error al verificar la agenda:", error);
+      setErrorServidor(
+        error.message ||
+        "No fue posible comprobar la capacidad diaria antes de crear el evento."
+      );
+      return;
+    }
 
     const nuevas = prepararNuevasParaConflicto(
       subtareas,
       formulario.fecha,
       formulario.fecha
     );
-    const primera = nuevas[0];
-    const porFecha = agruparNuevasPorFecha(nuevas);
+    const conflictoNuevo = buscarConflictoSubtareasNuevas({
+      agenda: agendaCargada,
+      subtareasNuevas: nuevas,
+      capacidadDiaria: capacidadCargada,
+      eventoTitulo: formulario.titulo.trim(),
+      fechaLimite: obtenerFechaLimiteSubtarea(formulario.fecha),
+    });
 
-    for (const [fechaDia, horasDia] of Object.entries(porFecha)) {
-      const horasExistentes = agendaCargada.reduce((total, item) => {
-        if (String(item.fechaObjetivo || "").slice(0, 10) !== fechaDia) {
-          return total;
-        }
-        return total + obtenerHoras(item);
-      }, 0);
-
-      if (horasExistentes + horasDia > capacidadCargada) {
-        setConflicto(
-          construirConflictoSobrecarga({
-            agenda: agendaCargada,
-            fecha: fechaDia,
-            horas: obtenerHoras(primera),
-            capacidadDiaria: capacidadCargada,
-            titulo: primera.titulo,
-            eventoTitulo: formulario.titulo.trim(),
-            fechaLimite: obtenerFechaLimiteSubtarea(formulario.fecha),
-            subtareasNuevas: nuevas.slice(1),
-          })
-        );
-        return;
-      }
+    if (conflictoNuevo) {
+      setConflicto(conflictoNuevo);
+      return;
     }
 
     await guardarEvento(
@@ -1243,10 +1260,23 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
       </section>
       {conflicto && (
         <ModalResolucionSobrecarga
-          key={`${conflicto.fecha_objetivo}-${conflicto.horas_asignadas}-${conflicto.fecha_recomendada || ""}`}
+          key={`${conflicto.id_subtarea_causa}-${conflicto.fecha_objetivo}-${conflicto.horas_asignadas}-${conflicto.fecha_recomendada || ""}`}
           conflicto={conflicto}
-          horasCausa={Number(subtareas[0].horas_estimadas)}
-          tituloCausa={subtareas[0].titulo.trim()}
+          horasCausa={
+            Number(
+              subtareas.find(
+                (item) =>
+                  String(item.id) ===
+                  String(conflicto.id_subtarea_causa)
+              )?.horas_estimadas
+            )
+          }
+          tituloCausa={
+            subtareas.find(
+              (item) =>
+                String(item.id) === String(conflicto.id_subtarea_causa)
+            )?.titulo?.trim() || ""
+          }
           guardando={enviando}
           onCancelar={() => setConflicto(null)}
           onAccion={aplicarDecisionSobrecarga}
@@ -1335,12 +1365,16 @@ function CrearSubtareaForm({
       return;
     }
 
-    const conflictoResidual = construirConflictoSobrecarga({
+    const conflictoResidual = buscarConflictoSubtareasNuevas({
       agenda,
-      fecha,
-      horas,
+      subtareasNuevas: [{
+        id: "nueva-subtarea",
+        titulo: form.nombre.trim(),
+        horas_estimadas: Number(horas),
+        estado: form.estado,
+        fechaObjetivo: fecha,
+      }],
       capacidadDiaria: capacidad,
-      titulo: form.nombre.trim(),
       eventoTitulo,
       fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
     });
@@ -1400,9 +1434,10 @@ function CrearSubtareaForm({
     if (
       !form.horas ||
       Number(form.horas) <= 0 ||
+      Number(form.horas) > 24 ||
       !Number.isInteger(Number(form.horas))
     ) {
-      next.horas = "Las horas deben ser mayor a 0.";
+      next.horas = "Las horas deben ser un número entero entre 1 y 24.";
     }
 
     if (
@@ -1415,30 +1450,41 @@ function CrearSubtareaForm({
 
     if (Object.keys(next).length) return;
 
-    let agendaActual = agenda;
-    let capacidadActual = capacidad;
+    if (normalizarEstado(form.estado) !== "hecho") {
+      let agendaActual;
+      let capacidadActual;
 
-    try {
-      const cargada = await cargarAgenda();
-      agendaActual = cargada.agenda;
-      capacidadActual = cargada.capacidad;
-    } catch (error) {
-      console.error("Error al verificar la agenda:", error);
-    }
+      try {
+        const cargada = await cargarAgenda();
+        agendaActual = cargada.agenda;
+        capacidadActual = cargada.capacidad;
+      } catch (error) {
+        console.error("Error al verificar la agenda:", error);
+        setErrorServidor(
+          error.message ||
+          "No fue posible comprobar la capacidad diaria antes de crear la subtarea."
+        );
+        return;
+      }
 
-    const conflictoNuevo = construirConflictoSobrecarga({
-      agenda: agendaActual,
-      fecha: form.dia_objetivo,
-      horas: Number(form.horas),
-      capacidadDiaria: capacidadActual,
-      titulo: form.nombre.trim(),
-      eventoTitulo,
-      fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
-    });
+      const conflictoNuevo = buscarConflictoSubtareasNuevas({
+        agenda: agendaActual,
+        subtareasNuevas: [{
+          id: "nueva-subtarea",
+          titulo: form.nombre.trim(),
+          horas_estimadas: Number(form.horas),
+          estado: form.estado,
+          fechaObjetivo: form.dia_objetivo,
+        }],
+        capacidadDiaria: capacidadActual,
+        eventoTitulo,
+        fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
+      });
 
-    if (conflictoNuevo) {
-      setConflicto(conflictoNuevo);
-      return;
+      if (conflictoNuevo) {
+        setConflicto(conflictoNuevo);
+        return;
+      }
     }
 
     await registrarSubtarea({
@@ -1581,7 +1627,7 @@ function CrearSubtareaForm({
       </div>
       {conflicto && (
         <ModalResolucionSobrecarga
-          key={`${conflicto.fecha_objetivo}-${conflicto.horas_asignadas}-${conflicto.fecha_recomendada || ""}`}
+          key={`${conflicto.id_subtarea_causa}-${conflicto.fecha_objetivo}-${conflicto.horas_asignadas}-${conflicto.fecha_recomendada || ""}`}
           conflicto={conflicto}
           horasCausa={Number(form.horas)}
           tituloCausa={form.nombre.trim()}
