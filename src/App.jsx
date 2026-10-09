@@ -112,6 +112,18 @@ function obtenerTituloSubtarea(item) {
   return item?.titulo ?? item?.nombre ?? "Sin título";
 }
 
+function limitarFechaSubtarea(fecha, fechaEvento) {
+  const hoy = obtenerFechaLocalHoy();
+  const maximo = String(fechaEvento || "").slice(0, 10);
+  if (!maximo || maximo < hoy) return "";
+
+  const seleccionada = String(fecha || "").slice(0, 10);
+  if (!seleccionada || seleccionada < hoy || seleccionada > maximo) {
+    return maximo;
+  }
+  return seleccionada;
+}
+
 function Toast({ type = "success", message }) {
   if (!message) return null;
   return <div className={`toast toast-${type}`} role={type === "error" ? "alert" : "status"}>{type === "success" ? "✓" : "!"} {message}</div>;
@@ -137,7 +149,12 @@ function Modal({ title, subtitle, close, children, wide = false }) {
   );
 }
 
-function Header({ ruta, abrirCrear, busquedaEventos, onBuscarEventos }) {
+function Header({
+  ruta,
+  abrirCrear,
+  busquedaEventos,
+  onBuscarEventos,
+}) {
   const [mostrarCerrarSesion, setMostrarCerrarSesion] = useState(false);
 
   const confirmarCerrarSesion = () => {
@@ -200,22 +217,6 @@ function Header({ ruta, abrirCrear, busquedaEventos, onBuscarEventos }) {
             onChange={(event) => onBuscarEventos(event.target.value)}
           />
         </form>
-
-        <button
-          className="icon-button"
-          type="button"
-          aria-label="Notificaciones"
-        >
-          ☾
-        </button>
-
-        <button
-          className="icon-button"
-          type="button"
-          aria-label="Ayuda"
-        >
-          ?
-        </button>
 
         <button
           className="btn primary header-create"
@@ -555,6 +556,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
     titulo: "",
     horas_estimadas: "",
     estado: "",
+    dia_objetivo: "",
   });
   const [errorSubtarea, setErrorSubtarea] = useState("");
 
@@ -605,6 +607,15 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
 
     setErrores((prev) => ({ ...prev, [name]: "" }));
     setErrorServidor("");
+    if (name === "fecha") {
+      setSubtarea((prev) => ({
+        ...prev,
+        dia_objetivo: limitarFechaSubtarea(
+          prev.dia_objetivo || value,
+          value
+        ),
+      }));
+    }
   };
 
   const validar = () => {
@@ -658,7 +669,16 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
         erroresSubtarea.push("indica las horas (de 1 a 24)");
       }
       if (!subtarea.estado) erroresSubtarea.push("selecciona el estado");
-      if (!formulario.fecha) erroresSubtarea.push("indica la fecha del evento");
+      if (
+        !limitarFechaSubtarea(
+          subtarea.dia_objetivo || formulario.fecha,
+          formulario.fecha
+        )
+      ) {
+        erroresSubtarea.push(
+          "selecciona una fecha límite entre hoy y la fecha del evento"
+        );
+      }
 
       if (erroresSubtarea.length) {
         setErrorSubtarea(`Para crear la subtarea, ${erroresSubtarea.join(", ")}.`);
@@ -680,7 +700,10 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
         titulo: subtarea.titulo.trim(),
         horas_estimadas: Number(subtarea.horas_estimadas),
         estado: subtarea.estado,
-        dia_objetivo: formulario.fecha,
+        dia_objetivo: limitarFechaSubtarea(
+          subtarea.dia_objetivo || formulario.fecha,
+          formulario.fecha
+        ),
       } : null);
     } catch (error) {
       setErrorServidor(error.message);
@@ -768,7 +791,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
           />
           <span>
             <strong>Crear una subtarea</strong>
-            <small>Se guardará vinculada a este evento y con su fecha de realización.</small>
+            <small>Se guardará vinculada al evento y con una fecha límite dentro de su periodo.</small>
           </span>
         </label>
         {crearSubtareaInicial && (
@@ -829,13 +852,26 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
             <input
               id="evento-subtarea-fecha"
               type="date"
-              value={formulario.fecha}
-              readOnly
-              disabled={!formulario.fecha}
-              aria-invalid={!formulario.fecha}
+              min={obtenerFechaLocalHoy()}
+              max={formulario.fecha}
+              value={limitarFechaSubtarea(
+                subtarea.dia_objetivo || formulario.fecha,
+                formulario.fecha
+              )}
+              onChange={(event) =>
+                setSubtarea((prev) => ({
+                  ...prev,
+                  dia_objetivo: event.target.value,
+                }))
+              }
+              disabled={
+                !formulario.fecha ||
+                formulario.fecha < obtenerFechaLocalHoy()
+              }
+              aria-invalid={Boolean(errorSubtarea)}
             />
             <p className="helper">
-              La fecha límite corresponde al día del evento
+              Selecciona entre hoy y la fecha del evento
               {formulario.fecha ? ` (${formatearFecha(formulario.fecha)})` : "."}
             </p>
             {errorSubtarea && <p className="inline-error" role="alert">{errorSubtarea}</p>}
@@ -857,7 +893,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
     nombre: "",
     horas: "",
     estado: "pendiente",
-    dia_objetivo: eventoFecha || "",
+    dia_objetivo: limitarFechaSubtarea(eventoFecha, eventoFecha),
   });
 
   const [errores, setErrores] = useState({});
@@ -897,8 +933,12 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
       next.horas = "Las horas deben ser mayor a 0.";
     }
 
-    if (!form.dia_objetivo) {
-      next.dia_objetivo = "La fecha del evento es requerida.";
+    if (
+      !limitarFechaSubtarea(form.dia_objetivo, eventoFecha) ||
+      limitarFechaSubtarea(form.dia_objetivo, eventoFecha) !== form.dia_objetivo
+    ) {
+      next.dia_objetivo =
+        "Selecciona una fecha límite entre hoy y la fecha del evento.";
     }
     setErrores(next);
 
@@ -1014,11 +1054,14 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
         id="sub-dia-objetivo"
         name="dia_objetivo"
         type="date"
-        disabled
+        min={obtenerFechaLocalHoy()}
+        max={eventoFecha}
         value={form.dia_objetivo}
+        onChange={actualizar}
+        disabled={!eventoFecha || eventoFecha < obtenerFechaLocalHoy()}
         aria-invalid={Boolean(errores.dia_objetivo)}
       />
-      <p className="helper">La fecha límite corresponde al día del evento.</p>
+      <p className="helper">Selecciona entre hoy y la fecha del evento.</p>
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
@@ -1107,10 +1150,8 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
   const validar = () => {
     const next = {};
 
-    if (formulario.titulo.trim().length < 3) {
-      next.titulo = "El título debe tener al menos 3 caracteres.";
-    } else if (formulario.titulo.trim().length < 5) {
-      next.titulo = "El título debe tener al menos 5 caracteres.";
+    if (!formulario.titulo.trim()) {
+      next.titulo = "se requiere titulo";
     }
 
     const hoy = obtenerFechaLocalHoy();
@@ -1166,7 +1207,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
     <form onSubmit={enviar} noValidate>
       <div className="field-header"><label htmlFor="edit-titulo">Título del evento <span>*</span></label></div>
       <input id="edit-titulo" name="titulo" value={formulario.titulo} onChange={actualizar} aria-invalid={Boolean(errores.titulo)} autoFocus />
-      {errores.titulo && <p className="inline-error" role="alert">X {errores.titulo}</p>}
+      {errores.titulo && <p className="inline-error" role="alert">{errores.titulo}</p>}
       <div className="form-two-columns">
         <div>
           <div className="field-header"><label htmlFor="edit-fecha">Fecha del evento <span>*</span></label></div>
@@ -1180,7 +1221,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
             aria-invalid={Boolean(errores.fecha)}
           />
           {errores.fecha ? (
-            <p className="inline-error" role="alert">X {errores.fecha}</p>
+            <p className="inline-error" role="alert">{errores.fecha}</p>
           ) : (
             <p className="helper">ⓘ La fecha debe ser hoy o una fecha futura</p>
           )}
@@ -1199,7 +1240,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
             aria-invalid={Boolean(errores.horas)}
           />
           {errores.horas ? (
-            <p className="inline-error" role="alert">X {errores.horas}</p>
+            <p className="inline-error" role="alert">{errores.horas}</p>
           ) : (
             <p className="helper">ⓘ Las horas deben ser entre 1 y 24</p>
           )}
@@ -1222,7 +1263,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
 
       {errores.usuario_responsable && (
         <p className="inline-error" role="alert">
-          X {errores.usuario_responsable}
+          {errores.usuario_responsable}
         </p>
       )}
       <div className="field-header"><label htmlFor="edit-descripcion">Descripción</label></div>
@@ -1241,7 +1282,10 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
     nombre: subtarea?.titulo ?? subtarea?.nombre ?? "",
     horas: subtarea?.horas_estimadas ?? subtarea?.horas ?? "",
     estado: normalizarEstado(subtarea?.estado),
-    dia_objetivo: eventoFecha || subtarea?.dia_objetivo || "",
+    dia_objetivo: limitarFechaSubtarea(
+      subtarea?.dia_objetivo || eventoFecha,
+      eventoFecha
+    ),
   });
 
   const [errores, setErrores] = useState({});
@@ -1280,8 +1324,12 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
     ) {
       next.horas = "Las horas deben ser mayor a 0.";
     }
-    if (!form.dia_objetivo) {
-      next.dia_objetivo = "La fecha del evento es requerida.";
+    if (
+      !limitarFechaSubtarea(form.dia_objetivo, eventoFecha) ||
+      limitarFechaSubtarea(form.dia_objetivo, eventoFecha) !== form.dia_objetivo
+    ) {
+      next.dia_objetivo =
+        "Selecciona una fecha límite entre hoy y la fecha del evento.";
     }
     setErrores(next);
 
@@ -1296,7 +1344,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
       await actualizarSubtarea(subtarea.id, {
         evento_id: eventoId,
         titulo: form.nombre.trim(),
-        dia_objetivo: eventoFecha || form.dia_objetivo,
+        dia_objetivo: form.dia_objetivo,
         horas_estimadas: Number(form.horas),
         estado: form.estado,
       });
@@ -1392,11 +1440,14 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
         id="edit-sub-dia-objetivo"
         name="dia_objetivo"
         type="date"
-        disabled
+        min={obtenerFechaLocalHoy()}
+        max={eventoFecha}
         value={form.dia_objetivo}
+        onChange={actualizar}
+        disabled={!eventoFecha || eventoFecha < obtenerFechaLocalHoy()}
         aria-invalid={Boolean(errores.dia_objetivo)}
       />
-      <p className="helper">La fecha límite corresponde al día del evento.</p>
+      <p className="helper">Selecciona entre hoy y la fecha del evento.</p>
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
@@ -2121,8 +2172,8 @@ function Today({ onNotify }) {
         es_subtarea_reprogramada: true,
       });
 
-      let fechaRecomendada = null;
       const fechaBase = new Date(`${fecha}T00:00:00`);
+      const fechasFuturas = [];
       for (let dias = 1; dias <= 365; dias += 1) {
         const candidata = new Date(fechaBase);
         candidata.setDate(candidata.getDate() + dias);
@@ -2131,22 +2182,34 @@ function Today({ onNotify }) {
           String(candidata.getMonth() + 1).padStart(2, "0"),
           String(candidata.getDate()).padStart(2, "0"),
         ].join("-");
-        const horasCandidata = subtareasAgenda.reduce((total, subtarea) => {
-          if (
-            String(subtarea.fechaObjetivo || "").slice(0, 10) !==
-              fechaCandidata ||
-            String(subtarea.id) === String(tarea.id)
-          ) {
-            return total;
-          }
-          return total + obtenerHoras(subtarea);
-        }, 0);
+        const horasCandidata = subtareasAgenda.reduce(
+          (total, subtarea) =>
+            String(subtarea.fechaObjetivo || "").slice(0, 10) ===
+              fechaCandidata &&
+            String(subtarea.id) !== String(tarea.id)
+              ? total + obtenerHoras(subtarea)
+              : total,
+          0
+        );
 
-        if (horasCandidata + Number(horas) <= capacidadDiaria) {
-          fechaRecomendada = fechaCandidata;
-          break;
-        }
+        fechasFuturas.push({
+          fecha: fechaCandidata,
+          horasAsignadas: horasCandidata,
+        });
       }
+      const fechasConCapacidad = fechasFuturas.filter(
+        (candidata) =>
+          candidata.horasAsignadas + Number(horas) <= capacidadDiaria
+      );
+      const fechasParaRecomendar = fechasConCapacidad.length
+        ? fechasConCapacidad
+        : fechasFuturas;
+      const fechaRecomendada = fechasParaRecomendar.reduce(
+        (menosCargada, candidata) =>
+          candidata.horasAsignadas < menosCargada.horasAsignadas
+            ? candidata
+            : menosCargada
+      ).fecha;
 
       return {
         actualizada: false,
@@ -2236,6 +2299,16 @@ function Today({ onNotify }) {
       : Number(horasManuales);
 
     if (!fecha || !Number.isFinite(horas) || horas <= 0) {
+      return;
+    }
+    if (
+      estrategiaSobrecarga === "manual" &&
+      horasManualesExcedenDisponibles
+    ) {
+      onNotify(
+        "Las horas ingresadas superan las horas disponibles de la jornada.",
+        "error"
+      );
       return;
     }
 
@@ -2449,9 +2522,11 @@ function Today({ onNotify }) {
     : 0;
   const excedeJornadaSeleccionada =
     nuevaFecha && horasAsignadasEnFecha > capacidadDiaria;
+  const horasManualesExcedenDisponibles =
+    Number(horasManuales) > Number(conflictoJornada?.horas_disponibles || 0);
   const comenzarResolucion = () => {
     const recomendada = Boolean(conflictoJornada?.fecha_recomendada);
-    setEstrategiaSobrecarga(recomendada ? "mover" : "ajustar");
+    setEstrategiaSobrecarga(recomendada ? "mover" : "manual");
     setHorasManuales(
       Math.min(
         Number(horasPosposicion),
@@ -2502,7 +2577,7 @@ function Today({ onNotify }) {
             <span>
               📅{" "}
               {estado === "pospuesto" && tarea.dia_objetivo
-                ? `Fecha reprogramada: ${new Intl.DateTimeFormat("es-CO", {
+                ? `Fecha de reprogramación: ${new Intl.DateTimeFormat("es-CO", {
                   day: "2-digit",
                   month: "2-digit",
                   year: "numeric",
@@ -3264,9 +3339,15 @@ function Today({ onNotify }) {
                       max="24"
                       step="0.5"
                       value={horasPosposicion}
-                      onChange={(event) =>
-                        setHorasPosposicion(Number(event.target.value))
-                      }
+                      onFocus={() => {
+                        if (Number(horasPosposicion) === 0) {
+                          setHorasPosposicion("");
+                        }
+                      }}
+                      onChange={(event) => {
+                        const valor = event.target.value;
+                        setHorasPosposicion(valor === "" ? "" : Number(valor));
+                      }}
                       disabled={guardandoPosposicion}
                     />
                     <span>horas</span>
@@ -3500,61 +3581,81 @@ function Today({ onNotify }) {
               {" "}({Number(horasPosposicion).toFixed(1)}h)
             </div>
             <div className="resolution-options">
-              {conflictoJornada.fecha_recomendada && (
-                <button
-                  type="button"
-                  className={`resolution-option ${estrategiaSobrecarga === "mover" ? "selected" : ""}`}
-                  aria-pressed={estrategiaSobrecarga === "mover"}
-                  onClick={() => setEstrategiaSobrecarga("mover")}
-                >
-                  <span className="resolution-radio" />
-                  <span>
-                    <strong>
-                      Mover a {formatearFecha(conflictoJornada.fecha_recomendada)}
-                      <em>Recomendada</em>
-                    </strong>
-                    <small>
-                      Reubica la gestión completa en el siguiente día con
-                      disponibilidad, sin recortar alcance.
-                    </small>
-                  </span>
-                </button>
-              )}
               <button
                 type="button"
-                className={`resolution-option ${estrategiaSobrecarga === "ajustar" ? "selected" : ""}`}
-                aria-pressed={estrategiaSobrecarga === "ajustar"}
-                onClick={() => setEstrategiaSobrecarga("ajustar")}
+                className={`resolution-option ${estrategiaSobrecarga === "mover" ? "selected" : ""}`}
+                aria-pressed={estrategiaSobrecarga === "mover"}
+                onClick={() => setEstrategiaSobrecarga("mover")}
               >
                 <span className="resolution-radio" />
                 <span>
                   <strong>
-                    Ajustar a {Number(horasManuales).toFixed(1)}h hoy
+                    Mover a {formatearFecha(conflictoJornada.fecha_recomendada)}
+                    <em>Recomendada</em>
                   </strong>
                   <small>
-                    Reduce la duración para cumplir el límite de{" "}
-                    {Number(conflictoJornada.limite_horas).toFixed(1)}h.
-                    {" "}Disponibles:{" "}
-                    {Number(conflictoJornada.horas_disponibles).toFixed(1)}h.
+                    Reubica la gestión completa al día con menor carga que
+                    permita mantener su duración.
+                  </small>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`resolution-option ${estrategiaSobrecarga === "manual" ? "selected" : ""}`}
+                aria-pressed={estrategiaSobrecarga === "manual"}
+                onClick={() => setEstrategiaSobrecarga("manual")}
+              >
+                <span className="resolution-radio" />
+                <span>
+                  <strong>Ajustar manualmente</strong>
+                  <small>
+                    Aumenta o disminuye las horas y verifica que no superen la
+                    disponibilidad de la jornada.
                   </small>
                 </span>
               </button>
             </div>
-            {estrategiaSobrecarga === "ajustar" && (
+            {estrategiaSobrecarga === "manual" && (
               <div className="postpone-field resolution-hours-field">
-                <label htmlFor="horas-ajuste">Duración ajustada (horas)</label>
-                <input
-                  id="horas-ajuste"
-                  type="number"
-                  min="0.5"
-                  max={conflictoJornada.horas_disponibles}
-                  step="0.5"
-                  value={horasManuales}
-                  onChange={(event) =>
-                    setHorasManuales(Number(event.target.value))
-                  }
-                  disabled={guardandoPosposicion}
-                />
+                <label>Duración manual (horas)</label>
+                <div
+                  className="postpone-hours-control"
+                  aria-label="Ajustar duración manual"
+                >
+                  <button
+                    type="button"
+                    aria-label="Disminuir media hora"
+                    onClick={() =>
+                      setHorasManuales((horas) =>
+                        Math.max(0.5, Number(horas) - 0.5)
+                      )
+                    }
+                    disabled={guardandoPosposicion || horasManuales <= 0.5}
+                  >
+                    −
+                  </button>
+                  <span className="postpone-hours-value" aria-live="polite">
+                    <strong>{Number(horasManuales).toFixed(1)}</strong>
+                    <span>horas</span>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Aumentar media hora"
+                    onClick={() =>
+                      setHorasManuales((horas) => Number(horas) + 0.5)
+                    }
+                    disabled={guardandoPosposicion}
+                  >
+                    +
+                  </button>
+                </div>
+                {horasManualesExcedenDisponibles && (
+                  <small className="resolution-hours-alert" role="alert">
+                    ⚠ Las horas superan las{" "}
+                    {Number(conflictoJornada.horas_disponibles).toFixed(1)}h
+                    disponibles. Disminuye la duración para continuar.
+                  </small>
+                )}
               </div>
             )}
             <div className="agenda-modal-actions resolution-actions">
@@ -3574,11 +3675,10 @@ function Today({ onNotify }) {
                   guardandoPosposicion ||
                   (estrategiaSobrecarga === "mover" &&
                     !conflictoJornada.fecha_recomendada) ||
-                  (estrategiaSobrecarga === "ajustar" &&
+                  (estrategiaSobrecarga === "manual" &&
                     (!horasManuales ||
                       horasManuales <= 0 ||
-                      horasManuales >
-                        Number(conflictoJornada.horas_disponibles)))
+                      horasManualesExcedenDisponibles))
                 }
               >
                 {guardandoPosposicion ? "Reprogramando…" : "Aplicar solución"}
@@ -4332,7 +4432,6 @@ export default function App() {
         await crearSubtarea({
           ...subtarea,
           evento_id: creado.id,
-          dia_objetivo: evento.fecha,
         });
       } catch (error) {
         notify(
