@@ -121,6 +121,15 @@ function obtenerHoras(item) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function obtenerHorasPendientes(tareas) {
+  return tareas
+    .filter((tarea) => {
+      const estado = normalizarEstado(tarea.estado);
+      return estado === "pendiente" || estado === "pospuesto";
+    })
+    .reduce((total, tarea) => total + obtenerHoras(tarea), 0);
+}
+
 function obtenerTituloSubtarea(item) {
   return item?.titulo ?? item?.nombre ?? "Sin título";
 }
@@ -160,6 +169,7 @@ function construirConflictoSobrecarga({
   titulo,
   eventoTitulo,
   subtareasNuevas = [],
+  idSubtareaCausa,
 }) {
   const horasOtros = agenda.reduce((total, subtarea) => {
     if (
@@ -255,21 +265,27 @@ function construirConflictoSobrecarga({
     });
   }
 
-  const fechasConCapacidad = fechasFuturas.filter(
+  const horasCausa = Number(horas) || 0;
+  const horasConCapacidad = fechasFuturas.filter(
     (candidata) =>
-      candidata.horasAsignadas + Number(horas) <= capacidadDiaria
+      candidata.horasAsignadas + horasCausa <= capacidadDiaria
   );
-  const fechasParaRecomendar = fechasConCapacidad.length
-    ? fechasConCapacidad
+  const fechasParaRecomendar = horasConCapacidad.length
+    ? horasConCapacidad
     : fechasFuturas;
-  const fechaRecomendada = fechasParaRecomendar.length
+  const recomendada = fechasParaRecomendar.length
     ? fechasParaRecomendar.reduce(
         (menosCargada, candidata) =>
           candidata.horasAsignadas < menosCargada.horasAsignadas
             ? candidata
             : menosCargada
-      ).fecha
-    : undefined;
+      )
+    : null;
+  const fechaRecomendada = recomendada?.fecha;
+  // Carga del día origen y del día recomendado, ambas sin contar la subtarea
+  // causante: son las bases que el modal necesita para recalcular en vivo la
+  // jornada que quedaría tras aplicar cada solución.
+  const horasOtras = horasOtros + horasNuevas;
 
   return {
     limite_excedido: true,
@@ -277,10 +293,164 @@ function construirConflictoSobrecarga({
     horas_asignadas: horasTotales,
     limite_horas: capacidadDiaria,
     exceso_horas: horasTotales - capacidadDiaria,
-    horas_disponibles: Math.max(0, capacidadDiaria - horasOtros),
+    horas_disponibles: Math.max(0, capacidadDiaria - horasOtras),
+    horas_causa: horasCausa,
+    horas_otras: horasOtras,
+    horas_recomendadas: recomendada?.horasAsignadas ?? 0,
     agenda: detalle,
     fecha_recomendada: fechaRecomendada,
+    id_subtarea_causa: idSubtareaCausa,
   };
+}
+
+// La agenda de origen se levanta en varios puntos del flujo; este respaldo
+// reconstruye la carga ajena a la causa cuando el conflicto no la expone.
+function obtenerHorasAjenas(conflicto) {
+  const limite = Number(conflicto?.limite_horas) || 0;
+  const declaradas = Number(conflicto?.horas_otras);
+
+  if (Number.isFinite(declaradas)) {
+    return declaradas;
+  }
+
+  const agenda = Array.isArray(conflicto?.agenda) ? conflicto.agenda : [];
+  const detalle = agenda.reduce(
+    (total, item) => total + (Number(item?.horas_estimadas) || 0),
+    0
+  );
+  const horasCausa = Number(conflicto?.horas_causa);
+
+  if (Number.isFinite(horasCausa)) {
+    return Math.max(0, detalle - horasCausa);
+  }
+
+  return Math.max(0, limite - (Number(conflicto?.horas_disponibles) || 0));
+}
+
+const PASO_HORAS_MANUALES = 0.5;
+
+// Suma de horas con decimales; la tolerancia evita que 0.1 + 0.2 descarte una
+// solución que en realidad cabe en la jornada.
+function cabeEnJornada(horas, limite) {
+  return horas - limite <= 1e-9;
+}
+
+function redondearHoras(horas) {
+  return Math.round((Number(horas) || 0) * 100) / 100;
+}
+
+// Duración con la que arranca el control manual: la mayor que quepa en la
+// jornada, acotada al rango que el selector de +/- puede representar.
+function calcularHorasManualesIniciales(conflicto, horasCausa) {
+  const limite = Number(conflicto?.limite_horas) || 0;
+  const presupuesto = Math.max(0, limite - obtenerHorasAjenas(conflicto));
+  const causa = Number(horasCausa) || 0;
+  const sugerida = Math.min(causa || presupuesto, presupuesto, limite);
+
+  return redondearHoras(Math.max(PASO_HORAS_MANUALES, sugerida));
+}
+
+// Fuente única de verdad del modal: a partir del conflicto, la estrategia y la
+// duración manual devuelve en un solo objeto la carga, el tope, el exceso, la
+// disponibilidad y la validez. La tarjeta, la alerta y el botón se alimentan
+// de aquí para que nunca muestren cifras contradictorias ni se queden obsoletas.
+function calcularResolucionSobrecarga({
+  conflicto,
+  estrategia,
+  horasManuales,
+  horasCausa,
+}) {
+  const limite = Number(conflicto?.limite_horas) || 0;
+  const causa = Math.max(0, Number(horasCausa) || 0);
+  const horasAjustadas = Math.max(0, Number(horasManuales) || 0);
+  const mover = estrategia === "mover" && Boolean(conflicto?.fecha_recomendada);
+
+  // Cada estrategia tiene su propio día destino y su propia carga previa.
+  const fechaDestino = mover
+    ? conflicto.fecha_recomendada
+    : conflicto?.fecha_objetivo;
+  const cargaPrevia = mover
+    ? Math.max(0, Number(conflicto?.horas_recomendadas) || 0)
+    : obtenerHorasAjenas(conflicto);
+  const horasAplicadas = mover ? causa : redondearHoras(horasAjustadas);
+  const asignadas = cargaPrevia + horasAplicadas;
+
+  // Lo que la causa puede ocupar ese día sin desbordar el tope, y lo que queda
+  // libre una vez aplicada la solución (puede ser negativo si hay sobrecarga).
+  const presupuesto = Math.max(0, limite - cargaPrevia);
+  const restante = limite - asignadas;
+  const exceso = Math.max(0, asignadas - limite);
+
+  let alerta = null;
+
+  if (mover) {
+    if (!cabeEnJornada(asignadas, limite)) {
+      alerta = {
+        tipo: "mover",
+        horas: asignadas,
+        limite,
+      };
+    }
+  } else if (!cabeEnJornada(asignadas, limite)) {
+    alerta = {
+      tipo: presupuesto < PASO_HORAS_MANUALES ? "sin-hueco" : "excede",
+      horas: presupuesto,
+      limite,
+    };
+  }
+
+  return {
+    estrategia: mover ? "mover" : "manual",
+    fecha_destino: fechaDestino,
+    limite,
+    horas_causa: causa,
+    horas_aplicadas: horasAplicadas,
+    carga_previa: cargaPrevia,
+    asignadas,
+    exceso,
+    restante,
+    presupuesto,
+    disponible: Math.max(0, restante),
+    alerta,
+    valido: !alerta && horasAplicadas > 0,
+  };
+}
+
+// Traduce el motivo de bloqueo a la alerta que ya existe en el modal, usando
+// siempre las cifras del cálculo vigente.
+function resolverMensajeAlerta(resolucionActual) {
+  const alerta = resolucionActual.alerta;
+
+  if (!alerta) return null;
+
+  if (alerta.tipo === "mover") {
+    return (
+      <>
+        ⚠ El {formatearFecha(resolucionActual.fecha_destino)} también
+        superaría su jornada ({alerta.horas.toFixed(1)}h de{" "}
+        {alerta.limite.toFixed(1)}h). Ajusta la duración manualmente para
+        continuar.
+      </>
+    );
+  }
+
+  if (alerta.tipo === "sin-hueco") {
+    return (
+      <>
+        ⚠ El {formatearFecha(resolucionActual.fecha_destino)} ya tiene{" "}
+        {resolucionActual.carga_previa.toFixed(1)}h programadas y solo admite{" "}
+        {alerta.horas.toFixed(1)}h. Mueve la gestión a otro día para
+        continuar.
+      </>
+    );
+  }
+
+  return (
+    <>
+      ⚠ Las horas superan las {alerta.horas.toFixed(1)}h disponibles.
+      Disminuye la duración para continuar.
+    </>
+  );
 }
 
 function prepararNuevasParaConflicto(subtareasNuevas, fechaActual, fechaEvento) {
@@ -294,16 +464,50 @@ function prepararNuevasParaConflicto(subtareasNuevas, fechaActual, fechaEvento) 
   }));
 }
 
-function agruparNuevasPorFecha(nuevasPreparadas) {
-  return nuevasPreparadas.reduce((agrupado, nueva) => {
-    if (!nueva.fechaObjetivo) {
-      return agrupado;
+function buscarConflictoSubtareasNuevas({
+  agenda,
+  subtareasNuevas,
+  capacidadDiaria,
+  eventoTitulo,
+  fechaLimite,
+}) {
+  const nuevasPorFecha = new Map();
+
+  subtareasNuevas.forEach((subtarea) => {
+    if (
+      !subtarea.fechaObjetivo ||
+      normalizarEstado(subtarea.estado) === "hecho"
+    ) {
+      return;
     }
 
-    agrupado[nueva.fechaObjetivo] =
-      (agrupado[nueva.fechaObjetivo] || 0) + obtenerHoras(nueva);
-    return agrupado;
-  }, {});
+    const fecha = String(subtarea.fechaObjetivo).slice(0, 10);
+    nuevasPorFecha.set(fecha, [
+      ...(nuevasPorFecha.get(fecha) || []),
+      subtarea,
+    ]);
+  });
+
+  for (const [fecha, subtareasDelDia] of nuevasPorFecha) {
+    const subtareaCausa = subtareasDelDia[subtareasDelDia.length - 1];
+    const conflicto = construirConflictoSobrecarga({
+      agenda,
+      fecha,
+      horas: obtenerHoras(subtareaCausa),
+      capacidadDiaria,
+      titulo: subtareaCausa.titulo,
+      eventoTitulo,
+      fechaLimite,
+      subtareasNuevas: subtareasDelDia.slice(0, -1),
+      idSubtareaCausa: subtareaCausa.id,
+    });
+
+    if (conflicto) {
+      return conflicto;
+    }
+  }
+
+  return null;
 }
 
 function Toast({ type = "success", message }) {
@@ -772,30 +976,27 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   };
 
   const cargarAgenda = async () => {
-    try {
-      const [subtareasData, hoyData] = await Promise.all([
-        obtenerSubtareas(),
-        obtenerHoy(),
-      ]);
+    const [subtareasData, hoyData] = await Promise.all([
+      obtenerSubtareas(),
+      obtenerHoy(),
+    ]);
 
-      const lista = Array.isArray(subtareasData) ? subtareasData : [];
-      const agendaCargada = lista
-        .map((item) => ({
-          ...item,
-          fechaObjetivo: item.dia_objetivo || null,
-        }))
-        .filter((item) => normalizarEstado(item.estado) !== "hecho");
+    const lista = Array.isArray(subtareasData) ? subtareasData : [];
+    const agendaCargada = lista
+      .map((item) => ({
+        ...item,
+        fechaObjetivo: item.dia_objetivo || null,
+      }))
+      .filter((item) => normalizarEstado(item.estado) !== "hecho");
 
-      const limite = Number(hoyData?.resumen?.limite_horas_dia);
+    const limite = Number(hoyData?.resumen?.limite_horas_dia);
+    const capacidadCargada =
+      Number.isInteger(limite) && limite > 0 ? limite : 6;
 
-      setAgenda(agendaCargada);
-      setCapacidad(Number.isInteger(limite) && limite > 0 ? limite : 6);
+    setAgenda(agendaCargada);
+    setCapacidad(capacidadCargada);
 
-      return { agenda: agendaCargada, capacidad: Number.isInteger(limite) && limite > 0 ? limite : 6 };
-    } catch (error) {
-      console.error("Error al verificar la agenda:", error);
-      return { agenda, capacidad };
-    }
+    return { agenda: agendaCargada, capacidad: capacidadCargada };
   };
 
   useEffect(() => {
@@ -939,8 +1140,8 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   };
 
   const aplicarDecisionSobrecarga = async ({ fecha, horas }) => {
-    const adjusted = subtareas.map((item, indice) =>
-      indice === 0
+    const adjusted = subtareas.map((item) =>
+      String(item.id) === String(conflicto?.id_subtarea_causa)
         ? { ...item, dia_objetivo: fecha, horas_estimadas: horas }
         : item
     );
@@ -949,33 +1150,17 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
       formulario.fecha,
       formulario.fecha
     );
-    const primera = nuevas[0];
-    const porFecha = agruparNuevasPorFecha(nuevas);
+    const conflictoRestante = buscarConflictoSubtareasNuevas({
+      agenda,
+      subtareasNuevas: nuevas,
+      capacidadDiaria: capacidad,
+      eventoTitulo: formulario.titulo.trim(),
+      fechaLimite: obtenerFechaLimiteSubtarea(formulario.fecha),
+    });
 
-    for (const [fechaNueva, horasDia] of Object.entries(porFecha)) {
-      const horasDelDia =
-        agenda.reduce((total, item) => {
-          if (String(item.fechaObjetivo || "").slice(0, 10) !== fechaNueva) {
-            return total;
-          }
-          return total + obtenerHoras(item);
-        }, 0) + horasDia;
-
-      if (horasDelDia > capacidad) {
-        setConflicto(
-          construirConflictoSobrecarga({
-            agenda,
-            fecha: fechaNueva,
-            horas: obtenerHoras(primera),
-            capacidadDiaria: capacidad,
-            titulo: primera.titulo,
-            eventoTitulo: formulario.titulo.trim(),
-            fechaLimite: obtenerFechaLimiteSubtarea(formulario.fecha),
-            subtareasNuevas: nuevas.slice(1),
-          })
-        );
-        return;
-      }
+    if (conflictoRestante) {
+      setConflicto(conflictoRestante);
+      return;
     }
 
     await guardarEvento(
@@ -1011,40 +1196,37 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
       return;
     }
 
-    const { agenda: agendaCargada, capacidad: capacidadCargada } =
-      await cargarAgenda();
+    let agendaCargada;
+    let capacidadCargada;
+    try {
+      const cargada = await cargarAgenda();
+      agendaCargada = cargada.agenda;
+      capacidadCargada = cargada.capacidad;
+    } catch (error) {
+      console.error("Error al verificar la agenda:", error);
+      setErrorServidor(
+        error.message ||
+        "No fue posible comprobar la capacidad diaria antes de crear el evento."
+      );
+      return;
+    }
 
     const nuevas = prepararNuevasParaConflicto(
       subtareas,
       formulario.fecha,
       formulario.fecha
     );
-    const primera = nuevas[0];
-    const porFecha = agruparNuevasPorFecha(nuevas);
+    const conflictoNuevo = buscarConflictoSubtareasNuevas({
+      agenda: agendaCargada,
+      subtareasNuevas: nuevas,
+      capacidadDiaria: capacidadCargada,
+      eventoTitulo: formulario.titulo.trim(),
+      fechaLimite: obtenerFechaLimiteSubtarea(formulario.fecha),
+    });
 
-    for (const [fechaDia, horasDia] of Object.entries(porFecha)) {
-      const horasExistentes = agendaCargada.reduce((total, item) => {
-        if (String(item.fechaObjetivo || "").slice(0, 10) !== fechaDia) {
-          return total;
-        }
-        return total + obtenerHoras(item);
-      }, 0);
-
-      if (horasExistentes + horasDia > capacidadCargada) {
-        setConflicto(
-          construirConflictoSobrecarga({
-            agenda: agendaCargada,
-            fecha: fechaDia,
-            horas: obtenerHoras(primera),
-            capacidadDiaria: capacidadCargada,
-            titulo: primera.titulo,
-            eventoTitulo: formulario.titulo.trim(),
-            fechaLimite: obtenerFechaLimiteSubtarea(formulario.fecha),
-            subtareasNuevas: nuevas.slice(1),
-          })
-        );
-        return;
-      }
+    if (conflictoNuevo) {
+      setConflicto(conflictoNuevo);
+      return;
     }
 
     await guardarEvento(
@@ -1234,10 +1416,23 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
       </section>
       {conflicto && (
         <ModalResolucionSobrecarga
-          key={`${conflicto.fecha_objetivo}-${conflicto.horas_asignadas}-${conflicto.fecha_recomendada || ""}`}
+          key={`${conflicto.id_subtarea_causa}-${conflicto.fecha_objetivo}-${conflicto.horas_asignadas}-${conflicto.exceso_horas}-${conflicto.horas_otras ?? ""}-${conflicto.fecha_recomendada || ""}`}
           conflicto={conflicto}
-          horasCausa={Number(subtareas[0].horas_estimadas)}
-          tituloCausa={subtareas[0].titulo.trim()}
+          horasCausa={
+            Number(
+              subtareas.find(
+                (item) =>
+                  String(item.id) ===
+                  String(conflicto.id_subtarea_causa)
+              )?.horas_estimadas
+            )
+          }
+          tituloCausa={
+            subtareas.find(
+              (item) =>
+                String(item.id) === String(conflicto.id_subtarea_causa)
+            )?.titulo?.trim() || ""
+          }
           guardando={enviando}
           onCancelar={() => setConflicto(null)}
           onAccion={aplicarDecisionSobrecarga}
@@ -1326,12 +1521,16 @@ function CrearSubtareaForm({
       return;
     }
 
-    const conflictoResidual = construirConflictoSobrecarga({
+    const conflictoResidual = buscarConflictoSubtareasNuevas({
       agenda,
-      fecha,
-      horas,
+      subtareasNuevas: [{
+        id: "nueva-subtarea",
+        titulo: form.nombre.trim(),
+        horas_estimadas: Number(horas),
+        estado: form.estado,
+        fechaObjetivo: fecha,
+      }],
       capacidadDiaria: capacidad,
-      titulo: form.nombre.trim(),
       eventoTitulo,
       fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
     });
@@ -1391,9 +1590,10 @@ function CrearSubtareaForm({
     if (
       !form.horas ||
       Number(form.horas) <= 0 ||
+      Number(form.horas) > 24 ||
       !Number.isInteger(Number(form.horas))
     ) {
-      next.horas = "Las horas deben ser mayor a 0.";
+      next.horas = "Las horas deben ser un número entero entre 1 y 24.";
     }
 
     if (
@@ -1406,30 +1606,41 @@ function CrearSubtareaForm({
 
     if (Object.keys(next).length) return;
 
-    let agendaActual = agenda;
-    let capacidadActual = capacidad;
+    if (normalizarEstado(form.estado) !== "hecho") {
+      let agendaActual;
+      let capacidadActual;
 
-    try {
-      const cargada = await cargarAgenda();
-      agendaActual = cargada.agenda;
-      capacidadActual = cargada.capacidad;
-    } catch (error) {
-      console.error("Error al verificar la agenda:", error);
-    }
+      try {
+        const cargada = await cargarAgenda();
+        agendaActual = cargada.agenda;
+        capacidadActual = cargada.capacidad;
+      } catch (error) {
+        console.error("Error al verificar la agenda:", error);
+        setErrorServidor(
+          error.message ||
+          "No fue posible comprobar la capacidad diaria antes de crear la subtarea."
+        );
+        return;
+      }
 
-    const conflictoNuevo = construirConflictoSobrecarga({
-      agenda: agendaActual,
-      fecha: form.dia_objetivo,
-      horas: Number(form.horas),
-      capacidadDiaria: capacidadActual,
-      titulo: form.nombre.trim(),
-      eventoTitulo,
-      fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
-    });
+      const conflictoNuevo = buscarConflictoSubtareasNuevas({
+        agenda: agendaActual,
+        subtareasNuevas: [{
+          id: "nueva-subtarea",
+          titulo: form.nombre.trim(),
+          horas_estimadas: Number(form.horas),
+          estado: form.estado,
+          fechaObjetivo: form.dia_objetivo,
+        }],
+        capacidadDiaria: capacidadActual,
+        eventoTitulo,
+        fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
+      });
 
-    if (conflictoNuevo) {
-      setConflicto(conflictoNuevo);
-      return;
+      if (conflictoNuevo) {
+        setConflicto(conflictoNuevo);
+        return;
+      }
     }
 
     await registrarSubtarea({
@@ -1572,7 +1783,7 @@ function CrearSubtareaForm({
       </div>
       {conflicto && (
         <ModalResolucionSobrecarga
-          key={`${conflicto.fecha_objetivo}-${conflicto.horas_asignadas}-${conflicto.fecha_recomendada || ""}`}
+          key={`${conflicto.id_subtarea_causa}-${conflicto.fecha_objetivo}-${conflicto.horas_asignadas}-${conflicto.exceso_horas}-${conflicto.horas_otras ?? ""}-${conflicto.fecha_recomendada || ""}`}
           conflicto={conflicto}
           horasCausa={Number(form.horas)}
           tituloCausa={form.nombre.trim()}
@@ -1842,6 +2053,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const [conflicto, setConflicto] = useState(null);
 
   const actualizar = (event) => {
     const { name, value } = event.target;
@@ -1871,9 +2083,10 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
     if (
       !form.horas ||
       Number(form.horas) <= 0 ||
+      Number(form.horas) > 24 ||
       !Number.isInteger(Number(form.horas))
     ) {
-      next.horas = "Las horas deben ser mayor a 0.";
+      next.horas = "Las horas deben ser un número entero entre 1 y 24.";
     }
     if (
       !esFechaSubtareaValida(form.dia_objetivo, eventoFecha)
@@ -1891,6 +2104,39 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
     setErrorServidor("");
 
     try {
+      if (normalizarEstado(form.estado) !== "hecho") {
+        const [subtareasData, hoyData] = await Promise.all([
+          obtenerSubtareas(),
+          obtenerHoy(),
+        ]);
+        const limite = Number(hoyData?.resumen?.limite_horas_dia);
+        const capacidadDiaria =
+          Number.isInteger(limite) && limite > 0 ? limite : 6;
+        const agenda = (Array.isArray(subtareasData) ? subtareasData : [])
+          .map((item) => ({
+            ...item,
+            fechaObjetivo: item.dia_objetivo || null,
+          }))
+          .filter((item) => normalizarEstado(item.estado) !== "hecho");
+        const conflictoCapacidad = construirConflictoSobrecarga({
+          agenda,
+          fecha: form.dia_objetivo,
+          horas: Number(form.horas),
+          capacidadDiaria,
+          excluirId: subtarea.id,
+          fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
+          titulo: form.nombre.trim(),
+          eventoTitulo: "Evento sin título",
+          idSubtareaCausa: subtarea.id,
+        });
+
+        if (conflictoCapacidad) {
+          setConflicto(conflictoCapacidad);
+          setGuardando(false);
+          return;
+        }
+      }
+
       await actualizarSubtarea(subtarea.id, {
         evento_id: eventoId,
         titulo: form.nombre.trim(),
@@ -1947,6 +2193,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
             name="horas"
             type="number"
             min="1"
+            max="24"
             step="1"
             value={form.horas}
             onChange={actualizar}
@@ -2031,6 +2278,18 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
           {guardando ? "Guardando…" : "Guardar cambios"}
         </button>
       </div>
+      {conflicto && (
+        <ModalResolucionSobrecarga
+          conflicto={conflicto}
+          titulo="Límite de jornada excedido"
+          descripcion={`La subtarea supera la capacidad diaria configurada para el ${formatearFecha(conflicto.fecha_objetivo)}.`}
+          permitirResolucion={false}
+          mostrarAcciones={false}
+          mostrarCancelar
+          guardando={false}
+          onCancelar={() => setConflicto(null)}
+        />
+      )}
     </form>
   );
 }
@@ -2315,6 +2574,7 @@ function CrearEventoPage({ onCancelar, onCrear }) {
 
 function ConfiguracionUsuario({ onNotify }) {
   const [horasDia, setHorasDia] = useState(6);
+  const [horasGuardadas, setHorasGuardadas] = useState(6);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
@@ -2328,11 +2588,11 @@ function ConfiguracionUsuario({ onNotify }) {
       try {
         const data = await obtenerConfiguracionUsuario();
 
-        setHorasDia(
-          Number.isInteger(Number(data?.horas_dia))
-            ? Number(data.horas_dia)
-            : 6
-        );
+        const horasConfiguradas = Number.isInteger(Number(data?.horas_dia))
+          ? Number(data.horas_dia)
+          : 6;
+        setHorasDia(horasConfiguradas);
+        setHorasGuardadas(horasConfiguradas);
       } catch (errorActual) {
         setError(
           errorActual.message ||
@@ -2383,9 +2643,32 @@ function ConfiguracionUsuario({ onNotify }) {
     setErrorCampo("");
 
     try {
-      const data = await actualizarConfiguracionUsuario(Number(horasDia));
+      const nuevasHoras = Number(horasDia);
+
+      if (nuevasHoras < horasGuardadas) {
+        const hoyData = await obtenerHoy();
+        const fechaHoy = hoyData?.fecha || obtenerFechaLocalHoy();
+        const gestionesDeHoy = [
+          ...(hoyData?.vencidas || []),
+          ...(hoyData?.urgentes || []),
+          ...(hoyData?.proximas || []),
+        ].filter(
+          (tarea) =>
+            String(tarea.dia_objetivo || "").slice(0, 10) === fechaHoy
+        );
+
+        if (obtenerHorasPendientes(gestionesDeHoy) > nuevasHoras) {
+          setErrorCampo(
+            "las horas asignadas superan a la capacidad del dia actual"
+          );
+          return;
+        }
+      }
+
+      const data = await actualizarConfiguracionUsuario(nuevasHoras);
 
       setHorasDia(Number(data.horas_dia));
+      setHorasGuardadas(Number(data.horas_dia));
 
       onNotify("Configuración guardada correctamente.");
     } catch (errorActual) {
@@ -2513,6 +2796,8 @@ function ModalResolucionSobrecarga({
   elementos,
   mostrarCapacidad = true,
   permitirResolucion = true,
+  mostrarAcciones = true,
+  mostrarCancelar = false,
   onAccion,
   onCancelar,
   guardando,
@@ -2522,35 +2807,46 @@ function ModalResolucionSobrecarga({
     conflicto?.fecha_recomendada ? "mover" : "manual"
   );
   const [horasManuales, setHorasManuales] = useState(() =>
-    Math.min(
-      Number(horasCausa) || 0,
-      Number(conflicto?.horas_disponibles) || 0
-    )
+    calcularHorasManualesIniciales(conflicto, horasCausa)
   );
 
   const lista = elementos ?? conflicto?.agenda ?? [];
-  const horasManualesExcedenDisponibles =
-    Number(horasManuales) > Number(conflicto?.horas_disponibles || 0);
+  // El conflicto es la fuente de la duración de la causa; la prop solo sirve
+  // para los avisos que no pasan por construirConflictoSobrecarga.
+  const horasCausaConflicto =
+    Number(conflicto?.horas_causa) || Number(horasCausa) || 0;
+  // Estado real del día en conflicto, tal como está antes de resolverlo.
+  const estadoActual = {
+    asignadas: Number(conflicto?.horas_asignadas) || 0,
+    limite: Number(conflicto?.limite_horas) || 0,
+    exceso: Math.max(
+      0,
+      (Number(conflicto?.horas_asignadas) || 0) -
+        (Number(conflicto?.limite_horas) || 0)
+    ),
+  };
+  const resolucionActual = calcularResolucionSobrecarga({
+    conflicto,
+    estrategia,
+    horasManuales,
+    horasCausa: horasCausaConflicto,
+  });
 
   const comenzarResolucion = () => {
     setEstrategia(conflicto?.fecha_recomendada ? "mover" : "manual");
     setHorasManuales(
-      Math.min(
-        Number(horasCausa) || 0,
-        Number(conflicto?.horas_disponibles) || 0
-      )
+      calcularHorasManualesIniciales(conflicto, horasCausaConflicto)
     );
     setResolucion(true);
   };
 
   const aplicarSolucion = () => {
-    const mover =
-      estrategia === "mover" && Boolean(conflicto?.fecha_recomendada);
+    if (!resolucionActual.valido) return;
 
     onAccion?.({
-      tipo: mover ? "mover" : "manual",
-      fecha: mover ? conflicto.fecha_recomendada : conflicto.fecha_objetivo,
-      horas: mover ? Number(horasCausa) : Number(horasManuales),
+      tipo: resolucionActual.estrategia,
+      fecha: resolucionActual.fecha_destino || conflicto.fecha_objetivo,
+      horas: resolucionActual.horas_aplicadas,
     });
   };
 
@@ -2593,24 +2889,27 @@ function ModalResolucionSobrecarga({
               <div className="agenda-capacity-card">
                 <div>
                   <strong>
-                    {Number(conflicto.horas_asignadas).toFixed(1)}h{" "}
+                    {estadoActual.asignadas.toFixed(1)}h{" "}
                     <small>asignadas</small>
                   </strong>
                   <span>
-                    {Number(conflicto.limite_horas).toFixed(1)}h de tope
-                    {" "}· +{Number(conflicto.exceso_horas).toFixed(1)}h
+                    {estadoActual.limite.toFixed(1)}h de tope
+                    {" "}· +{estadoActual.exceso.toFixed(1)}h
                     {" "}de exceso
                   </span>
                 </div>
                 <div className="agenda-capacity-track">
                   <span
                     style={{
-                      width: `${Math.min(
-                        (Number(conflicto.limite_horas) /
-                          Number(conflicto.horas_asignadas)) *
-                          100,
-                        100
-                      )}%`,
+                      width: `${
+                        estadoActual.asignadas > 0
+                          ? Math.min(
+                              (estadoActual.limite / estadoActual.asignadas) *
+                                100,
+                              100
+                            )
+                          : 0
+                      }%`,
                     }}
                   />
                 </div>
@@ -2639,24 +2938,28 @@ function ModalResolucionSobrecarga({
                 </div>
               </>
             )}
-            <div className="agenda-modal-actions">
-              <button
-                type="button"
-                className="btn secondary"
-                disabled={guardando}
-                onClick={onCancelar}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn primary"
-                onClick={permitirResolucion ? comenzarResolucion : onAccion}
-                disabled={guardando}
-              >
-                {etiquetaAccion || (permitirResolucion ? "Resolver conflicto →" : "Continuar")}
-              </button>
-            </div>
+            {(mostrarAcciones || mostrarCancelar) && (
+              <div className="agenda-modal-actions">
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={guardando}
+                  onClick={onCancelar}
+                >
+                  Cancelar
+                </button>
+                {mostrarAcciones && (
+                  <button
+                    type="button"
+                    className="btn primary"
+                    onClick={permitirResolucion ? comenzarResolucion : onAccion}
+                    disabled={guardando}
+                  >
+                    {etiquetaAccion || (permitirResolucion ? "Resolver conflicto →" : "Continuar")}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2680,37 +2983,41 @@ function ModalResolucionSobrecarga({
             <h2 id="resolution-title">Resolver sobrecarga de horas</h2>
             <p>
               {formatearFecha(conflicto.fecha_objetivo)} · Exceso de{" "}
-              {Number(conflicto.exceso_horas).toFixed(1)}h. Selecciona
+              {estadoActual.exceso.toFixed(1)}h. Selecciona
               cómo deseas equilibrar tu agenda.
             </p>
             <div className="agenda-capacity-card compact">
               <div>
                 <strong>
-                  {Number(conflicto.horas_asignadas).toFixed(1)}h
+                  {resolucionActual.asignadas.toFixed(1)}h
                   {" "}asignadas
                 </strong>
                 <span>
-                  {Number(conflicto.limite_horas).toFixed(1)}h de tope
-                  {" "}· +{Number(conflicto.exceso_horas).toFixed(1)}h
+                  {resolucionActual.limite.toFixed(1)}h de tope
+                  {" "}· +{resolucionActual.exceso.toFixed(1)}h
                   {" "}de exceso
                 </span>
               </div>
               <div className="agenda-capacity-track">
                 <span
                   style={{
-                    width: `${Math.min(
-                      (Number(conflicto.limite_horas) /
-                        Number(conflicto.horas_asignadas)) *
-                        100,
-                      100
-                    )}%`,
+                    width: `${
+                      resolucionActual.asignadas > 0
+                        ? Math.min(
+                            (resolucionActual.limite /
+                              resolucionActual.asignadas) *
+                              100,
+                            100
+                          )
+                        : 0
+                    }%`,
                   }}
                 />
               </div>
             </div>
             <div className="resolution-cause">
               ⚠ {tituloCausa} · Causa del exceso
-              {" "}({Number(horasCausa).toFixed(1)}h)
+              {" "}({horasCausaConflicto.toFixed(1)}h)
             </div>
             <div className="resolution-options">
               <button
@@ -2759,10 +3066,17 @@ function ModalResolucionSobrecarga({
                     aria-label="Disminuir media hora"
                     onClick={() =>
                       setHorasManuales((horas) =>
-                        Math.max(0.5, Number(horas) - 0.5)
+                        redondearHoras(
+                          Math.max(
+                            PASO_HORAS_MANUALES,
+                            Number(horas) - PASO_HORAS_MANUALES
+                          )
+                        )
                       )
                     }
-                    disabled={guardando || horasManuales <= 0.5}
+                    disabled={
+                      guardando || horasManuales <= PASO_HORAS_MANUALES
+                    }
                   >
                     −
                   </button>
@@ -2774,21 +3088,26 @@ function ModalResolucionSobrecarga({
                     type="button"
                     aria-label="Aumentar media hora"
                     onClick={() =>
-                      setHorasManuales((horas) => Number(horas) + 0.5)
+                      setHorasManuales((horas) =>
+                        redondearHoras(Number(horas) + PASO_HORAS_MANUALES)
+                      )
                     }
                     disabled={guardando}
                   >
                     +
                   </button>
                 </div>
-                {horasManualesExcedenDisponibles && (
+                {resolucionActual.alerta && (
                   <small className="resolution-hours-alert" role="alert">
-                    ⚠ Las horas superan las{" "}
-                    {Number(conflicto.horas_disponibles).toFixed(1)}h
-                    disponibles. Disminuye la duración para continuar.
+                    {resolverMensajeAlerta(resolucionActual)}
                   </small>
                 )}
               </div>
+            )}
+            {estrategia === "mover" && resolucionActual.alerta && (
+              <small className="resolution-hours-alert" role="alert">
+                {resolverMensajeAlerta(resolucionActual)}
+              </small>
             )}
             <div className="agenda-modal-actions resolution-actions">
               <button
@@ -2803,15 +3122,7 @@ function ModalResolucionSobrecarga({
                 type="button"
                 className="btn primary"
                 onClick={aplicarSolucion}
-                disabled={
-                  guardando ||
-                  (estrategia === "mover" &&
-                    !conflicto.fecha_recomendada) ||
-                  (estrategia === "manual" &&
-                    (!horasManuales ||
-                      horasManuales <= 0 ||
-                      horasManualesExcedenDisponibles))
-                }
+                disabled={guardando || !resolucionActual.valido}
               >
                 {guardando ? "Reprogramando…" : "Aplicar solución"}
               </button>
@@ -3269,10 +3580,7 @@ function Today({ onNotify }) {
     0
   );
 
-  const horasPendientes = [...pendientes, ...pospuestas].reduce(
-    (total, tarea) => total + obtenerHoras(tarea),
-    0
-  );
+  const horasPendientes = obtenerHorasPendientes(tareas);
 
   const porcentajeCapacidad = Math.min(
     Math.round((horasPendientes / capacidadDiaria) * 100),
