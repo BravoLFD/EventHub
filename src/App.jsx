@@ -2071,6 +2071,92 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
     setErrorServidor("");
   };
 
+  const cargarAgendaYCapacidad = async () => {
+    const [subtareasData, hoyData] = await Promise.all([
+      obtenerSubtareas(),
+      obtenerHoy(),
+    ]);
+
+    const agenda = (Array.isArray(subtareasData) ? subtareasData : [])
+      .map((item) => ({
+        ...item,
+        fechaObjetivo: item.dia_objetivo || null,
+      }))
+      .filter((item) => normalizarEstado(item.estado) !== "hecho");
+
+    const limite = Number(hoyData?.resumen?.limite_horas_dia);
+    const capacidadDiaria =
+      Number.isInteger(limite) && limite > 0 ? limite : 6;
+
+    return { agenda, capacidadDiaria };
+  };
+
+  // Guarda la edicion comprobando antes la capacidad del dia. Si la solucion no
+  // cabe devuelve el conflicto en lugar de guardar, para que el modal pueda
+  // pedir una decision concreta; una subtarea en estado "hecho" no consume
+  // jornada y por eso queda fuera de la comprobacion.
+  const guardarConValidacionLocal = async ({ fecha, horas }) => {
+    const titulo = form.nombre.trim();
+
+    if (normalizarEstado(form.estado) !== "hecho") {
+      const { agenda, capacidadDiaria } = await cargarAgendaYCapacidad();
+
+      // excluirId saca del calculo la subtarea que se esta editando, para no
+      // contar dos veces sus propias horas.
+      const conflictoCapacidad = construirConflictoSobrecarga({
+        agenda,
+        fecha,
+        horas,
+        capacidadDiaria,
+        excluirId: subtarea.id,
+        fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
+        titulo,
+        eventoTitulo: "Evento sin título",
+        idSubtareaCausa: subtarea.id,
+      });
+
+      if (conflictoCapacidad) {
+        return { guardada: false, ...conflictoCapacidad };
+      }
+    }
+
+    await actualizarSubtarea(subtarea.id, {
+      evento_id: eventoId,
+      titulo,
+      dia_objetivo: fecha,
+      horas_estimadas: Number(horas),
+      estado: form.estado,
+    });
+
+    return { guardada: true };
+  };
+
+  const guardarEdicion = async ({ fecha, horas }) => {
+    setGuardando(true);
+    setErrorServidor("");
+
+    try {
+      const resultado = await guardarConValidacionLocal({ fecha, horas });
+
+      if (!resultado.guardada) {
+        setGuardando(false);
+        setConflicto(resultado);
+        return;
+      }
+
+      setConflicto(null);
+      onGuardado();
+    } catch (error) {
+      console.error("Error al actualizar subtarea:", error);
+
+      setErrorServidor(
+        error?.message || "No fue posible actualizar la subtarea."
+      );
+
+      setGuardando(false);
+    }
+  };
+
   const enviar = async (event) => {
     event.preventDefault();
 
@@ -2100,61 +2186,27 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
       return;
     }
 
-    setGuardando(true);
-    setErrorServidor("");
+    await guardarEdicion({
+      fecha: form.dia_objetivo,
+      horas: Number(form.horas),
+    });
+  };
 
-    try {
-      if (normalizarEstado(form.estado) !== "hecho") {
-        const [subtareasData, hoyData] = await Promise.all([
-          obtenerSubtareas(),
-          obtenerHoy(),
-        ]);
-        const limite = Number(hoyData?.resumen?.limite_horas_dia);
-        const capacidadDiaria =
-          Number.isInteger(limite) && limite > 0 ? limite : 6;
-        const agenda = (Array.isArray(subtareasData) ? subtareasData : [])
-          .map((item) => ({
-            ...item,
-            fechaObjetivo: item.dia_objetivo || null,
-          }))
-          .filter((item) => normalizarEstado(item.estado) !== "hecho");
-        const conflictoCapacidad = construirConflictoSobrecarga({
-          agenda,
-          fecha: form.dia_objetivo,
-          horas: Number(form.horas),
-          capacidadDiaria,
-          excluirId: subtarea.id,
-          fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
-          titulo: form.nombre.trim(),
-          eventoTitulo: "Evento sin título",
-          idSubtareaCausa: subtarea.id,
-        });
-
-        if (conflictoCapacidad) {
-          setConflicto(conflictoCapacidad);
-          setGuardando(false);
-          return;
-        }
-      }
-
-      await actualizarSubtarea(subtarea.id, {
-        evento_id: eventoId,
-        titulo: form.nombre.trim(),
-        dia_objetivo: form.dia_objetivo,
-        horas_estimadas: Number(form.horas),
-        estado: form.estado,
-      });
-
-      onGuardado();
-    } catch (error) {
-      console.error("Error al actualizar subtarea:", error);
-
-      setErrorServidor(
-        error?.message || "No fue posible actualizar la subtarea."
-      );
-
-      setGuardando(false);
+  // Aplica la solucion elegida en el modal. Se vuelve a validar con los valores
+  // definitivos: la carga del dia puede haber cambiado y la propuesta seguir sin
+  // caber, en cuyo caso el conflicto se reconstruye y se muestra de nuevo.
+  const aplicarDecisionSobrecarga = async ({ fecha, horas }) => {
+    if (!esFechaSubtareaValida(fecha, eventoFecha)) {
+      setErrores((prev) => ({
+        ...prev,
+        dia_objetivo:
+          "Selecciona una fecha límite entre hoy y la fecha del evento.",
+      }));
+      setConflicto(null);
+      return;
     }
+
+    await guardarEdicion({ fecha, horas });
   };
 
   return (
@@ -2280,14 +2332,15 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
       </div>
       {conflicto && (
         <ModalResolucionSobrecarga
+          key={`${conflicto.id_subtarea_causa}-${conflicto.fecha_objetivo}-${conflicto.horas_asignadas}-${conflicto.exceso_horas}-${conflicto.horas_otras ?? ""}-${conflicto.fecha_recomendada || ""}`}
           conflicto={conflicto}
           titulo="Límite de jornada excedido"
           descripcion={`La subtarea supera la capacidad diaria configurada para el ${formatearFecha(conflicto.fecha_objetivo)}.`}
-          permitirResolucion={false}
-          mostrarAcciones={false}
-          mostrarCancelar
-          guardando={false}
+          horasCausa={Number(form.horas)}
+          tituloCausa={form.nombre.trim()}
+          guardando={guardando}
           onCancelar={() => setConflicto(null)}
+          onAccion={aplicarDecisionSobrecarga}
         />
       )}
     </form>
