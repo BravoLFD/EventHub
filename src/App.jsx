@@ -2129,6 +2129,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
           descripcion={`La subtarea supera la capacidad diaria configurada para el ${formatearFecha(conflicto.fecha_objetivo)}.`}
           permitirResolucion={false}
           mostrarAcciones={false}
+          mostrarCancelar
           guardando={false}
           onCancelar={() => setConflicto(null)}
         />
@@ -2640,6 +2641,7 @@ function ModalResolucionSobrecarga({
   mostrarCapacidad = true,
   permitirResolucion = true,
   mostrarAcciones = true,
+  mostrarCancelar = false,
   onAccion,
   onCancelar,
   guardando,
@@ -2766,7 +2768,7 @@ function ModalResolucionSobrecarga({
                 </div>
               </>
             )}
-            {mostrarAcciones && (
+            {(mostrarAcciones || mostrarCancelar) && (
               <div className="agenda-modal-actions">
                 <button
                   type="button"
@@ -2776,14 +2778,16 @@ function ModalResolucionSobrecarga({
                 >
                   Cancelar
                 </button>
-                <button
-                  type="button"
-                  className="btn primary"
-                  onClick={permitirResolucion ? comenzarResolucion : onAccion}
-                  disabled={guardando}
-                >
-                  {etiquetaAccion || (permitirResolucion ? "Resolver conflicto →" : "Continuar")}
-                </button>
+                {mostrarAcciones && (
+                  <button
+                    type="button"
+                    className="btn primary"
+                    onClick={permitirResolucion ? comenzarResolucion : onAccion}
+                    disabled={guardando}
+                  >
+                    {etiquetaAccion || (permitirResolucion ? "Resolver conflicto →" : "Continuar")}
+                  </button>
+                )}
               </div>
             )}
           </div>
