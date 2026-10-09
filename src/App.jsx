@@ -253,10 +253,6 @@ function Header({
           close={() => setMostrarCerrarSesion(false)}
         >
           <div className="logout-confirmation">
-            <div className="logout-confirmation-icon">
-              <FaDoorOpen aria-hidden="true" />
-            </div>
-
             <p>
               Si cierras sesión, tendrás que iniciar sesión nuevamente
               para acceder a EventHub.
