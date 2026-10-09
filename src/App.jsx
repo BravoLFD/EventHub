@@ -124,18 +124,14 @@ function limitarFechaSubtarea(fecha, fechaEvento) {
   return seleccionada;
 }
 
-// Fecha objetivo del evento padre, usada como límite superior del calendario de
-// reprogramación. Sin fecha seleccionada, limitarFechaSubtarea devuelve ese
-// límite; devuelve "" si el evento ya se venció o no tiene fecha utilizable,
-// y en ese caso el calendario no impone límite superior.
+// Sin fecha seleccionada, limitarFechaSubtarea devuelve el límite superior del
+// evento padre, o "" si el evento ya se venció o no tiene fecha utilizable.
 function obtenerFechaLimiteSubtarea(fechaEvento) {
   return limitarFechaSubtarea("", fechaEvento);
 }
 
-// Regla única de validación del día objetivo de una subtarea: debe quedar entre
-// hoy y la fecha objetivo del evento padre. Si el evento ya se venció o no
-// tiene fecha utilizable, ninguna fecha es admisible, igual que en los
-// formularios de creación y edición de subtareas.
+// El día objetivo debe quedar entre hoy y la fecha del evento padre; con el
+// evento ya vencido ninguna fecha es admisible.
 function esFechaSubtareaValida(fecha, fechaEvento) {
   const limite = limitarFechaSubtarea(fecha, fechaEvento);
   return Boolean(limite) && limite === String(fecha || "").slice(0, 10);
@@ -2105,6 +2101,11 @@ function Today({ onNotify }) {
           if (estadoA === "hecho" && estadoB !== "hecho") return 1;
           if (estadoA !== "hecho" && estadoB === "hecho") return -1;
 
+          const horasA = obtenerHoras(a);
+          const horasB = obtenerHoras(b);
+
+          if (horasA !== horasB) return horasA - horasB;
+
           return obtenerTituloSubtarea(a).localeCompare(
             obtenerTituloSubtarea(b),
             "es"
@@ -2153,8 +2154,6 @@ function Today({ onNotify }) {
       return new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     });
   };
-  // Límite superior del calendario de reprogramación: la fecha objetivo del
-  // evento padre, que ya viene adjunto a la gestión (ver cargarHoy).
   const fechaLimitePosponer = obtenerFechaLimiteSubtarea(
     tareaPosponer?.evento?.fecha
   );
@@ -2229,8 +2228,7 @@ function Today({ onNotify }) {
       const fechasParaRecomendar = fechasConCapacidad.length
         ? fechasConCapacidad
         : fechasFuturas;
-      // Si no queda ningún día dentro del rango del evento que pueda absorber
-      // el exceso, no se recomienda fecha y el usuario resuelve ajustando horas.
+      // Sin día libre dentro del rango del evento no se recomienda fecha.
       const fechaRecomendada = fechasParaRecomendar.length
         ? fechasParaRecomendar.reduce(
             (menosCargada, candidata) =>
