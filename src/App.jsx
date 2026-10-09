@@ -266,10 +266,6 @@ function Header({
           close={() => setMostrarCerrarSesion(false)}
         >
           <div className="logout-confirmation">
-            <div className="logout-confirmation-icon">
-              <FaDoorOpen aria-hidden="true" />
-            </div>
-
             <p>
               Si cierras sesión, tendrás que iniciar sesión nuevamente
               para acceder a EventHub.
@@ -1163,7 +1159,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
     const next = {};
 
     if (!formulario.titulo.trim()) {
-      next.titulo = "se requiere titulo";
+      next.titulo = "Se requiere titulo";
     }
 
     const hoy = obtenerFechaLocalHoy();
@@ -2634,9 +2630,12 @@ function Today({ onNotify }) {
             </span>
 
             {estado === "pospuesto" && tarea.motivo_posposicion && (
-              <span>
-                Razón: "{tarea.motivo_posposicion}"
-              </span>
+              <>
+                {" "}
+                <span>
+                  Razón: "{tarea.motivo_posposicion}"
+                </span>
+              </>
             )}
           </div>
         </div>
