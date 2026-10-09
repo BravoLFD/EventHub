@@ -121,6 +121,15 @@ function obtenerHoras(item) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function obtenerHorasPendientes(tareas) {
+  return tareas
+    .filter((tarea) => {
+      const estado = normalizarEstado(tarea.estado);
+      return estado === "pendiente" || estado === "pospuesto";
+    })
+    .reduce((total, tarea) => total + obtenerHoras(tarea), 0);
+}
+
 function obtenerTituloSubtarea(item) {
   return item?.titulo ?? item?.nombre ?? "Sin título";
 }
@@ -2315,6 +2324,7 @@ function CrearEventoPage({ onCancelar, onCrear }) {
 
 function ConfiguracionUsuario({ onNotify }) {
   const [horasDia, setHorasDia] = useState(6);
+  const [horasGuardadas, setHorasGuardadas] = useState(6);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
@@ -2328,11 +2338,11 @@ function ConfiguracionUsuario({ onNotify }) {
       try {
         const data = await obtenerConfiguracionUsuario();
 
-        setHorasDia(
-          Number.isInteger(Number(data?.horas_dia))
-            ? Number(data.horas_dia)
-            : 6
-        );
+        const horasConfiguradas = Number.isInteger(Number(data?.horas_dia))
+          ? Number(data.horas_dia)
+          : 6;
+        setHorasDia(horasConfiguradas);
+        setHorasGuardadas(horasConfiguradas);
       } catch (errorActual) {
         setError(
           errorActual.message ||
@@ -2383,9 +2393,32 @@ function ConfiguracionUsuario({ onNotify }) {
     setErrorCampo("");
 
     try {
-      const data = await actualizarConfiguracionUsuario(Number(horasDia));
+      const nuevasHoras = Number(horasDia);
+
+      if (nuevasHoras < horasGuardadas) {
+        const hoyData = await obtenerHoy();
+        const fechaHoy = hoyData?.fecha || obtenerFechaLocalHoy();
+        const gestionesDeHoy = [
+          ...(hoyData?.vencidas || []),
+          ...(hoyData?.urgentes || []),
+          ...(hoyData?.proximas || []),
+        ].filter(
+          (tarea) =>
+            String(tarea.dia_objetivo || "").slice(0, 10) === fechaHoy
+        );
+
+        if (obtenerHorasPendientes(gestionesDeHoy) > nuevasHoras) {
+          setErrorCampo(
+            "las horas asignadas superan a la capacidad del dia actual"
+          );
+          return;
+        }
+      }
+
+      const data = await actualizarConfiguracionUsuario(nuevasHoras);
 
       setHorasDia(Number(data.horas_dia));
+      setHorasGuardadas(Number(data.horas_dia));
 
       onNotify("Configuración guardada correctamente.");
     } catch (errorActual) {
@@ -3269,10 +3302,7 @@ function Today({ onNotify }) {
     0
   );
 
-  const horasPendientes = [...pendientes, ...pospuestas].reduce(
-    (total, tarea) => total + obtenerHoras(tarea),
-    0
-  );
+  const horasPendientes = obtenerHorasPendientes(tareas);
 
   const porcentajeCapacidad = Math.min(
     Math.round((horasPendientes / capacidadDiaria) * 100),
