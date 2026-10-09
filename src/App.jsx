@@ -1151,7 +1151,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
     const next = {};
 
     if (!formulario.titulo.trim()) {
-      next.titulo = "se requiere titulo";
+      next.titulo = "Se requiere titulo";
     }
 
     const hoy = obtenerFechaLocalHoy();
