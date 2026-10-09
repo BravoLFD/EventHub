@@ -767,6 +767,12 @@ small {
   gap: 9px;
 }
 
+.edit-pencil {
+  display: inline-block;
+
+  transform: scaleX(-1);
+}
+
 
 /* INFORMACIÓN DEL EVENTO */
 
@@ -1411,6 +1417,71 @@ small {
 
 .toast-error {
   background: #b8323b;
+}
+
+.help-widget {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 150;
+}
+
+.help-button {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #315bd5;
+  color: #fff;
+  box-shadow: 0 5px 16px rgba(33, 70, 199, 0.3);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.help-button:hover,
+.help-button:focus-visible {
+  background: #2448b8;
+}
+
+.help-button:focus-visible {
+  outline: 3px solid rgba(49, 91, 213, 0.3);
+  outline-offset: 3px;
+}
+
+.help-tooltip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  display: flex;
+  width: min(340px, calc(100vw - 32px));
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px 16px;
+  border: 1px solid #d5dbe5;
+  border-radius: 10px;
+  background: #fff;
+  color: #273044;
+  box-shadow: 0 10px 28px rgba(28, 48, 90, 0.16);
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+}
+
+.help-tooltip strong {
+  color: #172033;
+  font-size: 14px;
+}
+
+.help-widget:hover .help-tooltip,
+.help-widget:focus-within .help-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
 @keyframes toastAppear {
@@ -4718,6 +4789,48 @@ small {
   border-top: 1px solid #dce2ec;
 }
 
+.create-event-subtask-item {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.create-event-subtask-item:last-of-type {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.create-event-subtask-remove {
+  border: 0;
+  background: transparent;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.create-event-subtask-remove:hover {
+  text-decoration: underline;
+}
+
+.create-event-subtask-add {
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px;
+  border: 1px dashed #c3ccdb;
+  border-radius: 7px;
+  background: #f7f9fc;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.create-event-subtask-add:hover {
+  background: #eef3ff;
+}
+
 
 /* TERMINOS */
 
@@ -5461,14 +5574,14 @@ small {
 .agenda-modal>h2 {
   margin: 0 0 4px;
   color: #172033;
-  font-size: 20px;
+  font-size: 24px;
 }
 
 .agenda-modal-title p,
 .agenda-modal>p {
   margin: 0;
   color: #64748b;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .agenda-capacity-card {
@@ -5499,7 +5612,7 @@ small {
 
 .agenda-capacity-card>div:first-child>span {
   color: #c7353d;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   text-align: right;
 }
@@ -5522,7 +5635,7 @@ small {
   display: block;
   margin-bottom: 6px;
   color: #64748b;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -5550,24 +5663,24 @@ small {
 .agenda-breakdown-item strong {
   overflow: hidden;
   color: #273044;
-  font-size: 12px;
+  font-size: 14px;
   text-overflow: ellipsis;
 }
 
 .agenda-breakdown-item small {
   color: #64748b;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .agenda-breakdown-item b {
   flex: 0 0 auto;
   color: #c7353d;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .agenda-breakdown-item em {
   color: #c7353d;
-  font-size: 10px;
+  font-size: 12px;
   font-style: normal;
 }
 
@@ -5651,7 +5764,7 @@ small {
 
 .resolution-option strong {
   color: #273044;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .resolution-option strong em {
@@ -5660,14 +5773,14 @@ small {
   border-radius: 9px;
   background: #dce7ff;
   color: #2146c7;
-  font-size: 9px;
+  font-size: 11px;
   font-style: normal;
   text-transform: uppercase;
 }
 
 .resolution-option small {
   color: #64748b;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
 }
 
@@ -5692,7 +5805,7 @@ small {
   display: block;
   margin-top: 7px;
   color: #b42318;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.4;
 }
 
@@ -5852,17 +5965,6 @@ small {
   margin: 0 auto 4px;
 }
 
-.onboarding-workspace {
-  padding-left: 9px;
-
-  border-left: 1px solid #d8deea;
-
-  color: #667085;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
 /* PASO */
 
 .onboarding-step {
@@ -5910,21 +6012,10 @@ small {
   letter-spacing: -0.7px;
 }
 
-.onboarding-heading p {
-  margin: 0 auto;
-
-  max-width: 650px;
-
-  color: #667085;
-
-  font-size: 17px;
-  line-height: 1.6;
-}
-
 .onboarding-heading small {
   display: inline-block;
 
-  margin-top: 10px;
+  margin-top: 0;
   padding: 4px 9px;
 
   border-radius: 8px;
