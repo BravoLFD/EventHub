@@ -124,6 +124,23 @@ function limitarFechaSubtarea(fecha, fechaEvento) {
   return seleccionada;
 }
 
+// Fecha objetivo del evento padre, usada como límite superior del calendario de
+// reprogramación. Sin fecha seleccionada, limitarFechaSubtarea devuelve ese
+// límite; devuelve "" si el evento ya se venció o no tiene fecha utilizable,
+// y en ese caso el calendario no impone límite superior.
+function obtenerFechaLimiteSubtarea(fechaEvento) {
+  return limitarFechaSubtarea("", fechaEvento);
+}
+
+// Regla única de validación del día objetivo de una subtarea: debe quedar entre
+// hoy y la fecha objetivo del evento padre. Si el evento ya se venció o no
+// tiene fecha utilizable, ninguna fecha es admisible, igual que en los
+// formularios de creación y edición de subtareas.
+function esFechaSubtareaValida(fecha, fechaEvento) {
+  const limite = limitarFechaSubtarea(fecha, fechaEvento);
+  return Boolean(limite) && limite === String(fecha || "").slice(0, 10);
+}
+
 function Toast({ type = "success", message }) {
   if (!message) return null;
   return <div className={`toast toast-${type}`} role={type === "error" ? "alert" : "status"}>{type === "success" ? "✓" : "!"} {message}</div>;
@@ -934,8 +951,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
     }
 
     if (
-      !limitarFechaSubtarea(form.dia_objetivo, eventoFecha) ||
-      limitarFechaSubtarea(form.dia_objetivo, eventoFecha) !== form.dia_objetivo
+      !esFechaSubtareaValida(form.dia_objetivo, eventoFecha)
     ) {
       next.dia_objetivo =
         "Selecciona una fecha límite entre hoy y la fecha del evento.";
@@ -1325,8 +1341,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
       next.horas = "Las horas deben ser mayor a 0.";
     }
     if (
-      !limitarFechaSubtarea(form.dia_objetivo, eventoFecha) ||
-      limitarFechaSubtarea(form.dia_objetivo, eventoFecha) !== form.dia_objetivo
+      !esFechaSubtareaValida(form.dia_objetivo, eventoFecha)
     ) {
       next.dia_objetivo =
         "Selecciona una fecha límite entre hoy y la fecha del evento.";
@@ -2138,6 +2153,11 @@ function Today({ onNotify }) {
       return new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     });
   };
+  // Límite superior del calendario de reprogramación: la fecha objetivo del
+  // evento padre, que ya viene adjunto a la gestión (ver cargarHoy).
+  const fechaLimitePosponer = obtenerFechaLimiteSubtarea(
+    tareaPosponer?.evento?.fecha
+  );
   const reprogramarConValidacionLocal = async (tarea, fecha, horas) => {
     const horasOtros = subtareasAgenda.reduce((total, subtarea) => {
       if (
@@ -2182,6 +2202,11 @@ function Today({ onNotify }) {
           String(candidata.getMonth() + 1).padStart(2, "0"),
           String(candidata.getDate()).padStart(2, "0"),
         ].join("-");
+
+        if (fechaLimitePosponer && fechaCandidata > fechaLimitePosponer) {
+          break;
+        }
+
         const horasCandidata = subtareasAgenda.reduce(
           (total, subtarea) =>
             String(subtarea.fechaObjetivo || "").slice(0, 10) ===
@@ -2204,12 +2229,16 @@ function Today({ onNotify }) {
       const fechasParaRecomendar = fechasConCapacidad.length
         ? fechasConCapacidad
         : fechasFuturas;
-      const fechaRecomendada = fechasParaRecomendar.reduce(
-        (menosCargada, candidata) =>
-          candidata.horasAsignadas < menosCargada.horasAsignadas
-            ? candidata
-            : menosCargada
-      ).fecha;
+      // Si no queda ningún día dentro del rango del evento que pueda absorber
+      // el exceso, no se recomienda fecha y el usuario resuelve ajustando horas.
+      const fechaRecomendada = fechasParaRecomendar.length
+        ? fechasParaRecomendar.reduce(
+            (menosCargada, candidata) =>
+              candidata.horasAsignadas < menosCargada.horasAsignadas
+                ? candidata
+                : menosCargada
+          ).fecha
+        : undefined;
 
       return {
         actualizada: false,
@@ -2238,6 +2267,14 @@ function Today({ onNotify }) {
   };
   const confirmarPosposicion = async () => {
     if (!tareaPosponer || !nuevaFecha || !motivoPosposicion.trim()) {
+      return;
+    }
+
+    if (!esFechaSubtareaValida(nuevaFecha, tareaPosponer.evento?.fecha)) {
+      onNotify(
+        "Selecciona una fecha límite entre hoy y la fecha del evento.",
+        "error"
+      );
       return;
     }
 
@@ -2299,6 +2336,13 @@ function Today({ onNotify }) {
       : Number(horasManuales);
 
     if (!fecha || !Number.isFinite(horas) || horas <= 0) {
+      return;
+    }
+    if (!esFechaSubtareaValida(fecha, tareaPosponer.evento?.fecha)) {
+      onNotify(
+        "Selecciona una fecha límite entre hoy y la fecha del evento.",
+        "error"
+      );
       return;
     }
     if (
@@ -3285,13 +3329,18 @@ function Today({ onNotify }) {
                 ].join("-");
                 const horasDelDia = horasProgramadasEn(fecha);
                 const fechaPasada = fecha < obtenerFechaLocalHoy();
+                const fechaFueraDeRango =
+                  Boolean(fechaLimitePosponer) &&
+                  fecha > fechaLimitePosponer;
+                const fechaNoSeleccionable =
+                  fechaPasada || fechaFueraDeRango;
                 const seleccionada = nuevaFecha === fecha;
                 return (
                   <button
                     type="button"
-                    className={`postpone-calendar-day ${seleccionada ? "selected" : ""} ${fechaPasada ? "past" : ""} ${horasDelDia >= capacidadDiaria ? "full" : ""}`}
+                    className={`postpone-calendar-day ${seleccionada ? "selected" : ""} ${fechaNoSeleccionable ? "past" : ""} ${horasDelDia >= capacidadDiaria ? "full" : ""}`}
                     key={fecha}
-                    disabled={fechaPasada || guardandoPosposicion}
+                    disabled={fechaNoSeleccionable || guardandoPosposicion}
                     aria-pressed={seleccionada}
                     onClick={() => setNuevaFecha(fecha)}
                   >
