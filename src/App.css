@@ -767,6 +767,12 @@ small {
   gap: 9px;
 }
 
+.edit-pencil {
+  display: inline-block;
+
+  transform: scaleX(-1);
+}
+
 
 /* INFORMACIÓN DEL EVENTO */
 
@@ -4783,6 +4789,48 @@ small {
   border-top: 1px solid #dce2ec;
 }
 
+.create-event-subtask-item {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.create-event-subtask-item:last-of-type {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.create-event-subtask-remove {
+  border: 0;
+  background: transparent;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.create-event-subtask-remove:hover {
+  text-decoration: underline;
+}
+
+.create-event-subtask-add {
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px;
+  border: 1px dashed #c3ccdb;
+  border-radius: 7px;
+  background: #f7f9fc;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.create-event-subtask-add:hover {
+  background: #eef3ff;
+}
+
 
 /* TERMINOS */
 
@@ -5526,14 +5574,14 @@ small {
 .agenda-modal>h2 {
   margin: 0 0 4px;
   color: #172033;
-  font-size: 20px;
+  font-size: 24px;
 }
 
 .agenda-modal-title p,
 .agenda-modal>p {
   margin: 0;
   color: #64748b;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .agenda-capacity-card {
@@ -5564,7 +5612,7 @@ small {
 
 .agenda-capacity-card>div:first-child>span {
   color: #c7353d;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   text-align: right;
 }
@@ -5587,7 +5635,7 @@ small {
   display: block;
   margin-bottom: 6px;
   color: #64748b;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -5615,24 +5663,24 @@ small {
 .agenda-breakdown-item strong {
   overflow: hidden;
   color: #273044;
-  font-size: 12px;
+  font-size: 14px;
   text-overflow: ellipsis;
 }
 
 .agenda-breakdown-item small {
   color: #64748b;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .agenda-breakdown-item b {
   flex: 0 0 auto;
   color: #c7353d;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .agenda-breakdown-item em {
   color: #c7353d;
-  font-size: 10px;
+  font-size: 12px;
   font-style: normal;
 }
 
@@ -5716,7 +5764,7 @@ small {
 
 .resolution-option strong {
   color: #273044;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .resolution-option strong em {
@@ -5725,14 +5773,14 @@ small {
   border-radius: 9px;
   background: #dce7ff;
   color: #2146c7;
-  font-size: 9px;
+  font-size: 11px;
   font-style: normal;
   text-transform: uppercase;
 }
 
 .resolution-option small {
   color: #64748b;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
 }
 
@@ -5757,7 +5805,7 @@ small {
   display: block;
   margin-top: 7px;
   color: #b42318;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.4;
 }
 

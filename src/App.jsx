@@ -28,9 +28,18 @@ import {
 
 const rutas = ["/login", "/registro", "/registro/onboarding", "/eventos", "/hoy", "/crear-evento", "/configuracion"];
 
+// Deshabilita temporalmente el paso de "Personalización de tu espacio de
+// trabajo" durante este sprint. El componente OnboardingRegistro y sus
+// categorías se conservan intactos; basta con volver a poner esta bandera en
+// true para rehabilitar la pantalla.
+const PERSONALIZACION_HABILITADA = false;
+
 function rutaActual() {
   const path = window.location.pathname;
   if (path.startsWith("/eventos/") && path.split("/")[2]) return path;
+  if (path === "/registro/onboarding" && !PERSONALIZACION_HABILITADA) {
+    return "/eventos";
+  }
   return rutas.includes(path) ? path : "/eventos";
 }
 function esRutaPublica(path) {
@@ -62,6 +71,10 @@ function obtenerRutaInicial() {
 }
 
 function navegar(path) {
+  if (path === "/registro/onboarding" && !PERSONALIZACION_HABILITADA) {
+    path = "/eventos";
+  }
+
   if (esRutaPrivada(path) && !estaAutenticado()) {
     path = "/login";
   }
@@ -122,6 +135,175 @@ function limitarFechaSubtarea(fecha, fechaEvento) {
     return maximo;
   }
   return seleccionada;
+}
+
+// Sin fecha seleccionada, limitarFechaSubtarea devuelve el límite superior del
+// evento padre, o "" si el evento ya se venció o no tiene fecha utilizable.
+function obtenerFechaLimiteSubtarea(fechaEvento) {
+  return limitarFechaSubtarea("", fechaEvento);
+}
+
+// El día objetivo debe quedar entre hoy y la fecha del evento padre; con el
+// evento ya vencido ninguna fecha es admisible.
+function esFechaSubtareaValida(fecha, fechaEvento) {
+  const limite = limitarFechaSubtarea(fecha, fechaEvento);
+  return Boolean(limite) && limite === String(fecha || "").slice(0, 10);
+}
+
+function construirConflictoSobrecarga({
+  agenda,
+  fecha,
+  horas,
+  capacidadDiaria,
+  excluirId,
+  fechaLimite,
+  titulo,
+  eventoTitulo,
+  subtareasNuevas = [],
+}) {
+  const horasOtros = agenda.reduce((total, subtarea) => {
+    if (
+      String(subtarea.fechaObjetivo || "").slice(0, 10) !== fecha ||
+      String(subtarea.id) === String(excluirId)
+    ) {
+      return total;
+    }
+    return total + obtenerHoras(subtarea);
+  }, 0);
+  const nuevasDelDia = subtareasNuevas.filter(
+    (nueva) => String(nueva.fechaObjetivo || "").slice(0, 10) === fecha
+  );
+  const horasNuevas = nuevasDelDia.reduce(
+    (total, nueva) => total + obtenerHoras(nueva),
+    0
+  );
+  const horasTotales = horasOtros + horasNuevas + Number(horas);
+
+  if (horasTotales <= capacidadDiaria) {
+    return null;
+  }
+
+  const detalle = agenda
+    .filter(
+      (subtarea) =>
+        String(subtarea.fechaObjetivo || "").slice(0, 10) === fecha &&
+        String(subtarea.id) !== String(excluirId)
+    )
+    .map((subtarea) => ({
+      id: subtarea.id,
+      titulo: obtenerTituloSubtarea(subtarea),
+      evento: subtarea.evento?.titulo || "Evento sin título",
+      horas_estimadas: obtenerHoras(subtarea),
+      es_subtarea_reprogramada: false,
+    }));
+
+  nuevasDelDia.forEach((nueva, indice) => {
+    detalle.push({
+      id: nueva.id ?? `subtarea-nueva-${indice}`,
+      titulo: obtenerTituloSubtarea(nueva),
+      evento: eventoTitulo || "Evento sin título",
+      horas_estimadas: obtenerHoras(nueva),
+      es_subtarea_reprogramada: true,
+    });
+  });
+
+  detalle.push({
+    id: excluirId ?? "subtarea-nueva",
+    titulo,
+    evento: eventoTitulo || "Evento sin título",
+    horas_estimadas: Number(horas),
+    es_subtarea_reprogramada: true,
+  });
+
+  const fechaBase = new Date(`${fecha}T00:00:00`);
+  const fechasFuturas = [];
+
+  for (let dias = 1; dias <= 365; dias += 1) {
+    const candidata = new Date(fechaBase);
+    candidata.setDate(candidata.getDate() + dias);
+    const fechaCandidata = [
+      candidata.getFullYear(),
+      String(candidata.getMonth() + 1).padStart(2, "0"),
+      String(candidata.getDate()).padStart(2, "0"),
+    ].join("-");
+
+    if (fechaLimite && fechaCandidata > fechaLimite) {
+      break;
+    }
+
+    const horasCandidata =
+      agenda.reduce(
+        (total, subtarea) =>
+          String(subtarea.fechaObjetivo || "").slice(0, 10) ===
+            fechaCandidata &&
+          String(subtarea.id) !== String(excluirId)
+            ? total + obtenerHoras(subtarea)
+            : total,
+        0
+      ) +
+      nuevasDelDia.reduce(
+        (total, nueva) =>
+          String(nueva.fechaObjetivo || "").slice(0, 10) === fechaCandidata
+            ? total + obtenerHoras(nueva)
+            : total,
+        0
+      );
+
+    fechasFuturas.push({
+      fecha: fechaCandidata,
+      horasAsignadas: horasCandidata,
+    });
+  }
+
+  const fechasConCapacidad = fechasFuturas.filter(
+    (candidata) =>
+      candidata.horasAsignadas + Number(horas) <= capacidadDiaria
+  );
+  const fechasParaRecomendar = fechasConCapacidad.length
+    ? fechasConCapacidad
+    : fechasFuturas;
+  const fechaRecomendada = fechasParaRecomendar.length
+    ? fechasParaRecomendar.reduce(
+        (menosCargada, candidata) =>
+          candidata.horasAsignadas < menosCargada.horasAsignadas
+            ? candidata
+            : menosCargada
+      ).fecha
+    : undefined;
+
+  return {
+    limite_excedido: true,
+    fecha_objetivo: fecha,
+    horas_asignadas: horasTotales,
+    limite_horas: capacidadDiaria,
+    exceso_horas: horasTotales - capacidadDiaria,
+    horas_disponibles: Math.max(0, capacidadDiaria - horasOtros),
+    agenda: detalle,
+    fecha_recomendada: fechaRecomendada,
+  };
+}
+
+function prepararNuevasParaConflicto(subtareasNuevas, fechaActual, fechaEvento) {
+  return subtareasNuevas.map((nueva) => ({
+    ...nueva,
+    titulo: String(nueva.titulo || "").trim(),
+    fechaObjetivo: limitarFechaSubtarea(
+      nueva.dia_objetivo || fechaActual,
+      fechaEvento
+    ),
+  }));
+}
+
+function agruparNuevasPorFecha(nuevasPreparadas) {
+  return nuevasPreparadas.reduce((agrupado, nueva) => {
+    if (!nueva.fechaObjetivo) {
+      return agrupado;
+    }
+
+    agrupado[nueva.fechaObjetivo] =
+      (agrupado[nueva.fechaObjetivo] || 0) + obtenerHoras(nueva);
+    return agrupado;
+  }, {});
 }
 
 function Toast({ type = "success", message }) {
@@ -253,10 +435,6 @@ function Header({
           close={() => setMostrarCerrarSesion(false)}
         >
           <div className="logout-confirmation">
-            <div className="logout-confirmation-icon">
-              <FaDoorOpen aria-hidden="true" />
-            </div>
-
             <p>
               Si cierras sesión, tendrás que iniciar sesión nuevamente
               para acceder a EventHub.
@@ -552,13 +730,73 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   const [errorServidor, setErrorServidor] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [crearSubtareaInicial, setCrearSubtareaInicial] = useState(false);
-  const [subtarea, setSubtarea] = useState({
-    titulo: "",
-    horas_estimadas: "",
-    estado: "",
-    dia_objetivo: "",
-  });
+  const [subtareas, setSubtareas] = useState([
+    { id: "subtarea-1", titulo: "", horas_estimadas: "", estado: "", dia_objetivo: "" },
+  ]);
   const [errorSubtarea, setErrorSubtarea] = useState("");
+  const [conflicto, setConflicto] = useState(null);
+  const [agenda, setAgenda] = useState([]);
+  const [capacidad, setCapacidad] = useState(6);
+
+  const contadorSubtarea = useRef(1);
+
+  const agregarSubtarea = () => {
+    contadorSubtarea.current += 1;
+    const id = `subtarea-${contadorSubtarea.current}`;
+    setSubtareas((prev) => [
+      ...prev,
+      {
+        id,
+        titulo: "",
+        horas_estimadas: "",
+        estado: "",
+        dia_objetivo: "",
+      },
+    ]);
+    setErrorSubtarea("");
+  };
+
+  const quitarSubtarea = (id) => {
+    setSubtareas((prev) =>
+      prev.length > 1 ? prev.filter((item) => item.id !== id) : prev
+    );
+    setErrorSubtarea("");
+  };
+
+  const actualizarSubtarea = (id, campo, valor) => {
+    setSubtareas((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [campo]: valor } : item))
+    );
+
+    setErrorSubtarea("");
+  };
+
+  const cargarAgenda = async () => {
+    try {
+      const [subtareasData, hoyData] = await Promise.all([
+        obtenerSubtareas(),
+        obtenerHoy(),
+      ]);
+
+      const lista = Array.isArray(subtareasData) ? subtareasData : [];
+      const agendaCargada = lista
+        .map((item) => ({
+          ...item,
+          fechaObjetivo: item.dia_objetivo || null,
+        }))
+        .filter((item) => normalizarEstado(item.estado) !== "hecho");
+
+      const limite = Number(hoyData?.resumen?.limite_horas_dia);
+
+      setAgenda(agendaCargada);
+      setCapacidad(Number.isInteger(limite) && limite > 0 ? limite : 6);
+
+      return { agenda: agendaCargada, capacidad: Number.isInteger(limite) && limite > 0 ? limite : 6 };
+    } catch (error) {
+      console.error("Error al verificar la agenda:", error);
+      return { agenda, capacidad };
+    }
+  };
 
   useEffect(() => {
     onProgress?.({
@@ -571,50 +809,40 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   const actualizar = (event) => {
     const { name, value } = event.target;
 
-    setFormulario((prev) => {
-      const siguiente = { ...prev, [name]: value };
+    const siguiente = { ...formulario, [name]: value };
+    setFormulario(siguiente);
 
-      const pasosCompletados = [
-        Boolean(siguiente.titulo.trim()),
-        Boolean(siguiente.fecha),
-        Boolean(
-          siguiente.horas &&
-          Number(siguiente.horas) >= 1 &&
-          Number(siguiente.horas) <= 24 &&
-          Number.isInteger(Number(siguiente.horas))
-        ),
-        Boolean(siguiente.usuario_responsable.trim()),
-      ].filter(Boolean).length;
+    const pasos = [
+      Boolean(siguiente.titulo.trim()),
+      Boolean(siguiente.fecha),
+      Boolean(
+        siguiente.horas &&
+        Number(siguiente.horas) >= 1 &&
+        Number(siguiente.horas) <= 24 &&
+        Number.isInteger(Number(siguiente.horas))
+      ),
+      Boolean(siguiente.usuario_responsable.trim()),
+    ];
+    const pasosCompletados = pasos.filter(Boolean).length;
 
-      onProgress?.({
-        porcentaje: Math.round((pasosCompletados / 4) * 100),
-        pasosCompletados,
-        pasos: [
-          Boolean(siguiente.titulo.trim()),
-          Boolean(siguiente.fecha),
-          Boolean(
-            siguiente.horas &&
-            Number(siguiente.horas) >= 1 &&
-            Number(siguiente.horas) <= 24 &&
-            Number.isInteger(Number(siguiente.horas))
-          ),
-          Boolean(siguiente.usuario_responsable.trim()),
-        ],
-      });
-
-      return siguiente;
+    onProgress?.({
+      porcentaje: Math.round((pasosCompletados / 4) * 100),
+      pasosCompletados,
+      pasos,
     });
 
     setErrores((prev) => ({ ...prev, [name]: "" }));
     setErrorServidor("");
     if (name === "fecha") {
-      setSubtarea((prev) => ({
-        ...prev,
-        dia_objetivo: limitarFechaSubtarea(
-          prev.dia_objetivo || value,
-          value
-        ),
-      }));
+      setSubtareas((prev) =>
+        prev.map((item) => ({
+          ...item,
+          dia_objetivo: limitarFechaSubtarea(
+            item.dia_objetivo || value,
+            value
+          ),
+        }))
+      );
     }
   };
 
@@ -652,63 +880,181 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
     return next;
   };
 
+  const prepararSubtareas = () => {
+    const errores = [];
+    const invalidas = [];
+
+    subtareas.forEach((item, indice) => {
+      const erroresItem = [];
+
+      if (!item.titulo.trim()) erroresItem.push("indica el nombre");
+      if (
+        !item.horas_estimadas ||
+        Number(item.horas_estimadas) <= 0 ||
+        Number(item.horas_estimadas) > 24 ||
+        !Number.isInteger(Number(item.horas_estimadas))
+      ) {
+        erroresItem.push("indica las horas (de 1 a 24)");
+      }
+      if (!item.estado) erroresItem.push("selecciona el estado");
+      if (
+        !limitarFechaSubtarea(
+          item.dia_objetivo || formulario.fecha,
+          formulario.fecha
+        )
+      ) {
+        erroresItem.push(
+          "selecciona una fecha límite entre hoy y la fecha del evento"
+        );
+      }
+
+      if (erroresItem.length) {
+        invalidas.push(indice);
+        errores.push(
+          `Para crear la subtarea ${indice + 1}, ${erroresItem.join(", ")}.`
+        );
+      }
+    });
+
+    return { errores, invalidas };
+  };
+
+  const guardarEvento = async (subtareasAGuardar) => {
+    setEnviando(true);
+    try {
+      await onCrear(
+        {
+          titulo: formulario.titulo.trim(),
+          fecha: formulario.fecha,
+          horas: Number(formulario.horas),
+          usuario_responsable: formulario.usuario_responsable.trim(),
+          descripcion: formulario.descripcion.trim() || null,
+        },
+        subtareasAGuardar.length ? subtareasAGuardar : null
+      );
+    } catch (error) {
+      setErrorServidor(error.message);
+      setEnviando(false);
+    }
+  };
+
+  const aplicarDecisionSobrecarga = async ({ fecha, horas }) => {
+    const adjusted = subtareas.map((item, indice) =>
+      indice === 0
+        ? { ...item, dia_objetivo: fecha, horas_estimadas: horas }
+        : item
+    );
+    const nuevas = prepararNuevasParaConflicto(
+      adjusted,
+      formulario.fecha,
+      formulario.fecha
+    );
+    const primera = nuevas[0];
+    const porFecha = agruparNuevasPorFecha(nuevas);
+
+    for (const [fechaNueva, horasDia] of Object.entries(porFecha)) {
+      const horasDelDia =
+        agenda.reduce((total, item) => {
+          if (String(item.fechaObjetivo || "").slice(0, 10) !== fechaNueva) {
+            return total;
+          }
+          return total + obtenerHoras(item);
+        }, 0) + horasDia;
+
+      if (horasDelDia > capacidad) {
+        setConflicto(
+          construirConflictoSobrecarga({
+            agenda,
+            fecha: fechaNueva,
+            horas: obtenerHoras(primera),
+            capacidadDiaria: capacidad,
+            titulo: primera.titulo,
+            eventoTitulo: formulario.titulo.trim(),
+            fechaLimite: obtenerFechaLimiteSubtarea(formulario.fecha),
+            subtareasNuevas: nuevas.slice(1),
+          })
+        );
+        return;
+      }
+    }
+
+    await guardarEvento(
+      nuevas.map((item) => ({
+        titulo: item.titulo,
+        horas_estimadas: Number(item.horas_estimadas),
+        estado: item.estado,
+        dia_objetivo: item.fechaObjetivo,
+      }))
+    );
+  };
+
   const enviar = async (event) => {
     event.preventDefault();
     const next = validar();
     setErrores(next);
     setErrorServidor("");
-    if (crearSubtareaInicial) {
-      const erroresSubtarea = [];
-      if (!subtarea.titulo.trim()) erroresSubtarea.push("indica el nombre");
-      if (
-        !subtarea.horas_estimadas ||
-        Number(subtarea.horas_estimadas) <= 0 ||
-        Number(subtarea.horas_estimadas) > 24 ||
-        !Number.isInteger(Number(subtarea.horas_estimadas))
-      ) {
-        erroresSubtarea.push("indica las horas (de 1 a 24)");
-      }
-      if (!subtarea.estado) erroresSubtarea.push("selecciona el estado");
-      if (
-        !limitarFechaSubtarea(
-          subtarea.dia_objetivo || formulario.fecha,
-          formulario.fecha
-        )
-      ) {
-        erroresSubtarea.push(
-          "selecciona una fecha límite entre hoy y la fecha del evento"
-        );
-      }
 
-      if (erroresSubtarea.length) {
-        setErrorSubtarea(`Para crear la subtarea, ${erroresSubtarea.join(", ")}.`);
+    if (crearSubtareaInicial) {
+      const { errores } = prepararSubtareas();
+
+      if (errores.length) {
+        setErrorSubtarea(errores.join(" "));
         return;
       }
     }
+
     setErrorSubtarea("");
     if (Object.keys(next).length) return;
 
-    setEnviando(true);
-    try {
-      await onCrear({
-        titulo: formulario.titulo.trim(),
-        fecha: formulario.fecha,
-        horas: Number(formulario.horas),
-        usuario_responsable: formulario.usuario_responsable.trim(),
-        descripcion: formulario.descripcion.trim() || null,
-      }, crearSubtareaInicial ? {
-        titulo: subtarea.titulo.trim(),
-        horas_estimadas: Number(subtarea.horas_estimadas),
-        estado: subtarea.estado,
-        dia_objetivo: limitarFechaSubtarea(
-          subtarea.dia_objetivo || formulario.fecha,
-          formulario.fecha
-        ),
-      } : null);
-    } catch (error) {
-      setErrorServidor(error.message);
-      setEnviando(false);
+    if (!crearSubtareaInicial) {
+      await guardarEvento([]);
+      return;
     }
+
+    const { agenda: agendaCargada, capacidad: capacidadCargada } =
+      await cargarAgenda();
+
+    const nuevas = prepararNuevasParaConflicto(
+      subtareas,
+      formulario.fecha,
+      formulario.fecha
+    );
+    const primera = nuevas[0];
+    const porFecha = agruparNuevasPorFecha(nuevas);
+
+    for (const [fechaDia, horasDia] of Object.entries(porFecha)) {
+      const horasExistentes = agendaCargada.reduce((total, item) => {
+        if (String(item.fechaObjetivo || "").slice(0, 10) !== fechaDia) {
+          return total;
+        }
+        return total + obtenerHoras(item);
+      }, 0);
+
+      if (horasExistentes + horasDia > capacidadCargada) {
+        setConflicto(
+          construirConflictoSobrecarga({
+            agenda: agendaCargada,
+            fecha: fechaDia,
+            horas: obtenerHoras(primera),
+            capacidadDiaria: capacidadCargada,
+            titulo: primera.titulo,
+            eventoTitulo: formulario.titulo.trim(),
+            fechaLimite: obtenerFechaLimiteSubtarea(formulario.fecha),
+            subtareasNuevas: nuevas.slice(1),
+          })
+        );
+        return;
+      }
+    }
+
+    await guardarEvento(
+      nuevas.map((item) => ({
+        titulo: item.titulo,
+        horas_estimadas: Number(item.horas_estimadas),
+        estado: item.estado,
+        dia_objetivo: item.fechaObjetivo,
+      }))
+    );
   };
 
   return (
@@ -796,80 +1142,88 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
         </label>
         {crearSubtareaInicial && (
           <div className="create-event-subtask-fields">
-            <div className="field-header">
-              <label htmlFor="evento-subtarea-titulo">Nombre de la subtarea <span>*</span></label>
-            </div>
-            <input
-              id="evento-subtarea-titulo"
-              value={subtarea.titulo}
-              onChange={(event) =>
-                setSubtarea((prev) => ({ ...prev, titulo: event.target.value }))
-              }
-              placeholder="Ej. Preparar presentación"
-            />
-            <div className="form-two-columns">
-              <div>
+            {subtareas.map((item, indice) => (
+              <div className="create-event-subtask-item" key={item.id}>
                 <div className="field-header">
-                  <label htmlFor="evento-subtarea-horas">Horas <span>*</span></label>
+                  <label htmlFor={`evento-subtarea-titulo-${item.id}`}>
+                    Nombre de la subtarea {subtareas.length > 1 ? `${indice + 1}` : ""} <span>*</span>
+                  </label>
+                  {subtareas.length > 1 && (
+                    <button
+                      type="button"
+                      className="create-event-subtask-remove"
+                      onClick={() => quitarSubtarea(item.id)}
+                    >
+                      Eliminar
+                    </button>
+                  )}
                 </div>
                 <input
-                  id="evento-subtarea-horas"
-                  type="number"
-                  min="1"
-                  max="24"
-                  step="1"
-                  value={subtarea.horas_estimadas}
-                  onChange={(event) =>
-                    setSubtarea((prev) => ({
-                      ...prev,
-                      horas_estimadas: event.target.value,
-                    }))
+                  id={`evento-subtarea-titulo-${item.id}`}
+                  value={item.titulo}
+                  onChange={(event) => actualizarSubtarea(item.id, "titulo", event.target.value)}
+                  placeholder="Ej. Preparar presentación"
+                />
+                <div className="form-two-columns">
+                  <div>
+                    <div className="field-header">
+                      <label htmlFor={`evento-subtarea-horas-${item.id}`}>Horas <span>*</span></label>
+                    </div>
+                    <input
+                      id={`evento-subtarea-horas-${item.id}`}
+                      type="number"
+                      min="1"
+                      max="24"
+                      step="1"
+                      value={item.horas_estimadas}
+                      onChange={(event) => actualizarSubtarea(item.id, "horas_estimadas", event.target.value)}
+                      placeholder="2"
+                    />
+                  </div>
+                  <div>
+                    <div className="field-header">
+                      <label htmlFor={`evento-subtarea-estado-${item.id}`}>Estado</label>
+                    </div>
+                    <select
+                      id={`evento-subtarea-estado-${item.id}`}
+                      value={item.estado}
+                      onChange={(event) => actualizarSubtarea(item.id, "estado", event.target.value)}
+                    >
+                      <option value="">Selecciona un estado</option>
+                      <option value="pendiente">Pendiente</option>
+                      <option value="hecho">Hecho</option>
+                      <option value="pospuesto">Pospuesto</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="field-header">
+                  <label htmlFor={`evento-subtarea-fecha-${item.id}`}>Fecha límite <span>*</span></label>
+                </div>
+                <input
+                  id={`evento-subtarea-fecha-${item.id}`}
+                  type="date"
+                  min={obtenerFechaLocalHoy()}
+                  max={formulario.fecha}
+                  value={limitarFechaSubtarea(
+                    item.dia_objetivo || formulario.fecha,
+                    formulario.fecha
+                  )}
+                  onChange={(event) => actualizarSubtarea(item.id, "dia_objetivo", event.target.value)}
+                  disabled={
+                    !formulario.fecha ||
+                    formulario.fecha < obtenerFechaLocalHoy()
                   }
-                  placeholder="2"
+                  aria-invalid={Boolean(errorSubtarea)}
                 />
               </div>
-              <div>
-                <div className="field-header">
-                  <label htmlFor="evento-subtarea-estado">Estado</label>
-                </div>
-                <select
-                  id="evento-subtarea-estado"
-                  value={subtarea.estado}
-                  onChange={(event) =>
-                    setSubtarea((prev) => ({ ...prev, estado: event.target.value }))
-                  }
-                >
-                  <option value="">Selecciona un estado</option>
-                  <option value="pendiente">Pendiente</option>
-                  <option value="hecho">Hecho</option>
-                  <option value="pospuesto">Pospuesto</option>
-                </select>
-              </div>
-            </div>
-            <div className="field-header">
-              <label htmlFor="evento-subtarea-fecha">Fecha límite <span>*</span></label>
-            </div>
-            <input
-              id="evento-subtarea-fecha"
-              type="date"
-              min={obtenerFechaLocalHoy()}
-              max={formulario.fecha}
-              value={limitarFechaSubtarea(
-                subtarea.dia_objetivo || formulario.fecha,
-                formulario.fecha
-              )}
-              onChange={(event) =>
-                setSubtarea((prev) => ({
-                  ...prev,
-                  dia_objetivo: event.target.value,
-                }))
-              }
-              disabled={
-                !formulario.fecha ||
-                formulario.fecha < obtenerFechaLocalHoy()
-              }
-              aria-invalid={Boolean(errorSubtarea)}
-            />
+            ))}
+            <button
+              type="button"
+              className="create-event-subtask-add"
+              onClick={agregarSubtarea}
+            >
+              + Agregar nueva subtarea
+            </button>
             <p className="helper">
               Selecciona entre hoy y la fecha del evento
               {formulario.fecha ? ` (${formatearFecha(formulario.fecha)})` : "."}
@@ -878,6 +1232,17 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
           </div>
         )}
       </section>
+      {conflicto && (
+        <ModalResolucionSobrecarga
+          key={`${conflicto.fecha_objetivo}-${conflicto.horas_asignadas}-${conflicto.fecha_recomendada || ""}`}
+          conflicto={conflicto}
+          horasCausa={Number(subtareas[0].horas_estimadas)}
+          tituloCausa={subtareas[0].titulo.trim()}
+          guardando={enviando}
+          onCancelar={() => setConflicto(null)}
+          onAccion={aplicarDecisionSobrecarga}
+        />
+      )}
 
       {errorServidor && <div className="alert alert-error" role="alert"><b>No fue posible crear el evento.</b><span>{errorServidor}</span></div>}
       <div className="actions">
@@ -888,7 +1253,13 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
   );
 }
 
-function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
+function CrearSubtareaForm({
+  eventoId,
+  eventoFecha,
+  eventoTitulo,
+  onCancelar,
+  onCreada,
+}) {
   const [form, setForm] = useState({
     nombre: "",
     horas: "",
@@ -899,6 +1270,98 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [conflicto, setConflicto] = useState(null);
+  const [agenda, setAgenda] = useState([]);
+  const [capacidad, setCapacidad] = useState(6);
+
+  const cargarAgenda = async () => {
+    const [subtareasData, hoyData] = await Promise.all([
+      obtenerSubtareas(),
+      obtenerHoy(),
+    ]);
+
+    const lista = Array.isArray(subtareasData) ? subtareasData : [];
+    const agendaCargada = lista
+      .map((subtarea) => ({
+        ...subtarea,
+        fechaObjetivo: subtarea.dia_objetivo || null,
+      }))
+      .filter((subtarea) => normalizarEstado(subtarea.estado) !== "hecho");
+
+    const limite = Number(hoyData?.resumen?.limite_horas_dia);
+    const capacidadCargada =
+      Number.isInteger(limite) && limite > 0 ? limite : 6;
+
+    setAgenda(agendaCargada);
+    setCapacidad(capacidadCargada);
+
+    return { agenda: agendaCargada, capacidad: capacidadCargada };
+  };
+
+  const registrarSubtarea = async (datos) => {
+    setEnviando(true);
+    setErrorServidor("");
+
+    try {
+      await crearSubtarea(datos);
+      setConflicto(null);
+      onCreada();
+    } catch (error) {
+      console.error("Error al crear subtarea:", error);
+      setErrorServidor(
+        error.message || "No fue posible crear la subtarea."
+      );
+      setEnviando(false);
+    }
+  };
+
+  const aplicarDecisionSobrecarga = async ({ fecha, horas }) => {
+    if (!esFechaSubtareaValida(fecha, eventoFecha)) {
+      setErrores((prev) => ({
+        ...prev,
+        dia_objetivo:
+          "Selecciona una fecha límite entre hoy y la fecha del evento.",
+      }));
+      setConflicto(null);
+      return;
+    }
+
+    const conflictoResidual = construirConflictoSobrecarga({
+      agenda,
+      fecha,
+      horas,
+      capacidadDiaria: capacidad,
+      titulo: form.nombre.trim(),
+      eventoTitulo,
+      fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
+    });
+
+    if (conflictoResidual) {
+      setConflicto(conflictoResidual);
+      return;
+    }
+
+    setEnviando(true);
+    setErrorServidor("");
+
+    try {
+      await crearSubtarea({
+        evento_id: eventoId,
+        titulo: form.nombre.trim(),
+        dia_objetivo: fecha,
+        horas_estimadas: Number(horas),
+        estado: form.estado,
+      });
+      setConflicto(null);
+      onCreada();
+    } catch (error) {
+      console.error("Error al crear subtarea:", error);
+      setErrorServidor(
+        error.message || "No fue posible crear la subtarea."
+      );
+      setEnviando(false);
+    }
+  };
 
   const actualizar = (event) => {
     const { name, value } = event.target;
@@ -934,8 +1397,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
     }
 
     if (
-      !limitarFechaSubtarea(form.dia_objetivo, eventoFecha) ||
-      limitarFechaSubtarea(form.dia_objetivo, eventoFecha) !== form.dia_objetivo
+      !esFechaSubtareaValida(form.dia_objetivo, eventoFecha)
     ) {
       next.dia_objetivo =
         "Selecciona una fecha límite entre hoy y la fecha del evento.";
@@ -944,26 +1406,39 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
 
     if (Object.keys(next).length) return;
 
-    setEnviando(true);
-    setErrorServidor("");
+    let agendaActual = agenda;
+    let capacidadActual = capacidad;
 
     try {
-      await crearSubtarea({
-        evento_id: eventoId,
-        titulo: form.nombre.trim(),
-        dia_objetivo: form.dia_objetivo,
-        horas_estimadas: Number(form.horas),
-        estado: form.estado,
-      });
-
-      onCreada();
+      const cargada = await cargarAgenda();
+      agendaActual = cargada.agenda;
+      capacidadActual = cargada.capacidad;
     } catch (error) {
-      console.error("Error al crear subtarea:", error);
-      setErrorServidor(
-        error.message || "No fue posible crear la subtarea."
-      );
-      setEnviando(false);
+      console.error("Error al verificar la agenda:", error);
     }
+
+    const conflictoNuevo = construirConflictoSobrecarga({
+      agenda: agendaActual,
+      fecha: form.dia_objetivo,
+      horas: Number(form.horas),
+      capacidadDiaria: capacidadActual,
+      titulo: form.nombre.trim(),
+      eventoTitulo,
+      fechaLimite: obtenerFechaLimiteSubtarea(eventoFecha),
+    });
+
+    if (conflictoNuevo) {
+      setConflicto(conflictoNuevo);
+      return;
+    }
+
+    await registrarSubtarea({
+      evento_id: eventoId,
+      titulo: form.nombre.trim(),
+      dia_objetivo: form.dia_objetivo,
+      horas_estimadas: Number(form.horas),
+      estado: form.estado,
+    });
   };
 
   return (
@@ -986,7 +1461,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
 
       {errores.nombre && (
         <p className="inline-error" role="alert">
-          X {errores.nombre}
+          {errores.nombre}
         </p>
       )}
 
@@ -1013,7 +1488,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
 
           {errores.horas ? (
             <p className="inline-error" role="alert">
-              X {errores.horas}
+              {errores.horas}
             </p>
           ) : (
             <p className="helper">
@@ -1065,7 +1540,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
-          X {errores.dia_objetivo}
+          {errores.dia_objetivo}
         </p>
       )}
 
@@ -1095,6 +1570,17 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
           {enviando ? "Creando…" : "Crear subtarea"}
         </button>
       </div>
+      {conflicto && (
+        <ModalResolucionSobrecarga
+          key={`${conflicto.fecha_objetivo}-${conflicto.horas_asignadas}-${conflicto.fecha_recomendada || ""}`}
+          conflicto={conflicto}
+          horasCausa={Number(form.horas)}
+          tituloCausa={form.nombre.trim()}
+          guardando={enviando}
+          onCancelar={() => setConflicto(null)}
+          onAccion={aplicarDecisionSobrecarga}
+        />
+      )}
     </form>
   );
 }
@@ -1127,7 +1613,7 @@ function ConfirmModal({ title, message, confirmLabel = "Eliminar", close, onConf
   );
 }
 
-function EditarEventoForm({ evento, onCancelar, onGuardado }) {
+function EditarEventoForm({ evento, subtareas = [], onCancelar, onGuardado }) {
   const responsable = typeof evento?.usuario_responsable === "object" ? evento.usuario_responsable?.nombre : evento?.usuario_responsable;
   const [formulario, setFormulario] = useState({
     titulo: evento?.titulo || "",
@@ -1139,6 +1625,59 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const [advertenciaFecha, setAdvertenciaFecha] = useState(null);
+
+  const fechaActual = String(evento?.fecha || "").slice(0, 10);
+
+  const guardar = async () => {
+    setGuardando(true);
+    setErrorServidor("");
+    try {
+      await actualizarEvento(evento.id, {
+        titulo: formulario.titulo.trim(),
+        fecha: formulario.fecha,
+        horas: Number(formulario.horas),
+        usuario_responsable: formulario.usuario_responsable.trim(),
+        descripcion: formulario.descripcion.trim() || null,
+      });
+      setAdvertenciaFecha(null);
+      onGuardado();
+    } catch (error) {
+      setErrorServidor(error.message);
+      setGuardando(false);
+    }
+  };
+
+  const detectarAdvertenciaFecha = () => {
+    if (formulario.fecha === fechaActual || subtareas.length === 0) {
+      return null;
+    }
+
+    const subtareasAfectadasActual = subtareas.filter(
+      (subtarea) =>
+        String(subtarea.dia_objetivo || "").slice(0, 10) > formulario.fecha
+    );
+
+    if (subtareasAfectadasActual.length === 0) {
+      return null;
+    }
+
+    return {
+      fecha_anterior: fechaActual,
+      fecha_nueva: formulario.fecha,
+      limite_horas: 0,
+      horas_asignadas: 0,
+      exceso_horas: 0,
+      horas_disponibles: 0,
+      fecha_recomendada: undefined,
+      agenda: subtareasAfectadasActual.map((subtarea) => ({
+        id: subtarea.id,
+        titulo: obtenerTituloSubtarea(subtarea),
+        evento: `Programada para el ${formatearFecha(subtarea.dia_objetivo)}`,
+        horas_estimadas: obtenerHoras(subtarea),
+      })),
+    };
+  };
 
   const actualizar = (event) => {
     const { name, value } = event.target;
@@ -1186,21 +1725,15 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
     const next = validar();
     setErrores(next);
     if (Object.keys(next).length) return;
-    setGuardando(true);
-    setErrorServidor("");
-    try {
-      await actualizarEvento(evento.id, {
-        titulo: formulario.titulo.trim(),
-        fecha: formulario.fecha,
-        horas: Number(formulario.horas),
-        usuario_responsable: formulario.usuario_responsable.trim(),
-        descripcion: formulario.descripcion.trim() || null,
-      });
-      onGuardado();
-    } catch (error) {
-      setErrorServidor(error.message);
-      setGuardando(false);
+
+    const advertencia = detectarAdvertenciaFecha();
+
+    if (advertencia) {
+      setAdvertenciaFecha(advertencia);
+      return;
     }
+
+    await guardar();
   };
 
   return (
@@ -1273,6 +1806,24 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
         <button className="btn ghost" type="button" onClick={onCancelar} disabled={guardando}>Cancelar</button>
         <button className="btn primary" type="submit" disabled={guardando}>{guardando && <span className="mini-spinner" />}{guardando ? "Guardando…" : "Guardar cambios"}</button>
       </div>
+      {advertenciaFecha && (
+        <ModalResolucionSobrecarga
+          conflicto={advertenciaFecha}
+          titulo="Cambiar la fecha del evento"
+          descripcion={`Si continúas, cambiará la fecha del evento, pero las subtareas conservarán sus fechas actuales.`}
+          etiquetaDesglose={
+            advertenciaFecha.agenda.length > 0
+              ? "SUBTAREAS QUE CONSERVARÁN SU FECHA"
+              : ""
+          }
+          mostrarCapacidad={false}
+          permitirResolucion={false}
+          etiquetaAccion="Continuar"
+          guardando={guardando}
+          onCancelar={() => setAdvertenciaFecha(null)}
+          onAccion={guardar}
+        />
+      )}
     </form>
   );
 }
@@ -1325,8 +1876,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
       next.horas = "Las horas deben ser mayor a 0.";
     }
     if (
-      !limitarFechaSubtarea(form.dia_objetivo, eventoFecha) ||
-      limitarFechaSubtarea(form.dia_objetivo, eventoFecha) !== form.dia_objetivo
+      !esFechaSubtareaValida(form.dia_objetivo, eventoFecha)
     ) {
       next.dia_objetivo =
         "Selecciona una fecha límite entre hoy y la fecha del evento.";
@@ -1380,7 +1930,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
 
       {errores.nombre && (
         <p className="inline-error" role="alert">
-          X {errores.nombre}
+          {errores.nombre}
         </p>
       )}
 
@@ -1405,7 +1955,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
 
           {errores.horas && (
             <p className="inline-error" role="alert">
-              X {errores.horas}
+              {errores.horas}
             </p>
           )}
         </div>
@@ -1451,7 +2001,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
-          X {errores.dia_objetivo}
+          {errores.dia_objetivo}
         </p>
       )}
 
@@ -1585,7 +2135,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
       <div className="detail-title-row">
         <div><h1>{evento.titulo}</h1><p>• Información del evento</p></div>
         <div className="title-actions">
-          <button className="btn secondary" onClick={() => setModal("edit-event")}>✎ Editar</button>
+          <button className="btn secondary" onClick={() => setModal("edit-event")}><span className="edit-pencil" aria-hidden="true">✎</span> Editar</button>
           <button className="btn danger-outline" onClick={() => setConfirmacion({ type: "evento" })}><FaTrashAlt aria-hidden="true" /> Eliminar</button>
         </div>
       </div>
@@ -1611,7 +2161,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
               <span className={`task-check ${estado === "hecho" ? "completed" : ""}`}>{estado === "hecho" ? "✓" : ""}</span>
               <div className="task-main"><h3 className={estado === "hecho" ? "completed-text" : ""}>{titulo}</h3><p>◷ {obtenerHoras(task)} {obtenerHoras(task) === 1 ? "hora" : "horas"}</p></div>
               <span className={`badge ${estado === "hecho" ? "badge-success" : "badge-pending"}`}>{etiquetaEstado(estado)}</span>
-              <div className="row-actions"><button className="btn ghost" onClick={() => setModal({ type: "edit-subtask", item: task })}>✎ Editar</button><button className="btn danger-outline" onClick={() => setConfirmacion({ type: "subtarea", item: task })}><FaTrashAlt aria-hidden="true" /> Eliminar</button></div>
+              <div className="row-actions"><button className="btn ghost" onClick={() => setModal({ type: "edit-subtask", item: task })}><span className="edit-pencil" aria-hidden="true">✎</span> Editar</button><button className="btn danger-outline" onClick={() => setConfirmacion({ type: "subtarea", item: task })}><FaTrashAlt aria-hidden="true" /> Eliminar</button></div>
             </article>;
           })}
         </div>}
@@ -1619,8 +2169,8 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
 
       <section className="progress-card card"><div className="progress-icon">✓</div><div><h2>Progreso global de subtareas</h2><p>{completadas} de {subtareas.length} completadas ({porcentaje}%) • {horasRegistradas} horas totales registradas</p></div><strong>{porcentaje}%</strong><div className="progress-track"><span style={{ width: `${porcentaje}%` }} /></div></section>
 
-      {modal === "create-subtask" && <Modal title="Crear subtarea" subtitle="Agrega una nueva tarea para este evento." close={() => setModal(null)}><CrearSubtareaForm eventoId={id} eventoFecha={evento.fecha} onCancelar={() => setModal(null)} onCreada={async () => { setModal(null); onNotify("Subtarea creada correctamente"); await cargarSubtareas(); }} /></Modal>}
-      {modal === "edit-event" && <Modal title="Editar evento" subtitle="Actualiza la información del evento." close={() => setModal(null)} wide><EditarEventoForm evento={evento} onCancelar={() => setModal(null)} onGuardado={eventoActualizado} /></Modal>}
+      {modal === "create-subtask" && <Modal title="Crear subtarea" subtitle="Agrega una nueva tarea para este evento." close={() => setModal(null)}><CrearSubtareaForm eventoId={id} eventoFecha={evento.fecha} eventoTitulo={evento.titulo} onCancelar={() => setModal(null)} onCreada={async () => { setModal(null); onNotify("Subtarea creada correctamente"); await cargarSubtareas(); }} /></Modal>}
+      {modal === "edit-event" && <Modal title="Editar evento" subtitle="Actualiza la información del evento." close={() => setModal(null)} wide><EditarEventoForm evento={evento} subtareas={subtareas} onCancelar={() => setModal(null)} onGuardado={eventoActualizado} /></Modal>}
       {modal?.type === "edit-subtask" && <Modal title="Editar subtarea" subtitle="Actualiza la información de la subtarea." close={() => setModal(null)}><EditarSubtareaForm subtarea={modal.item} eventoId={id} eventoFecha={evento.fecha} onCancelar={() => setModal(null)} onGuardado={subtareaActualizada} /></Modal>}
       {confirmacion?.type === "evento" && <ConfirmModal title="¿Eliminar evento?" message="Esta acción eliminará el evento y sus subtareas. No se puede deshacer." close={() => setConfirmacion(null)} onConfirm={ejecutarEliminacion} loading={eliminando} />}
       {confirmacion?.type === "subtarea" && <ConfirmModal title="¿Eliminar subtarea?" message={`Esta acción eliminará “${obtenerTituloSubtarea(confirmacion.item)}”. No se puede deshacer.`} close={() => setConfirmacion(null)} onConfirm={ejecutarEliminacion} loading={eliminando} />}
@@ -1914,7 +2464,7 @@ function ConfiguracionUsuario({ onNotify }) {
                   className="inline-error"
                   role="alert"
                 >
-                  X {errorCampo}
+                  {errorCampo}
                 </p>
               )}
             </div>
@@ -1952,6 +2502,327 @@ function obtenerFechaLocalHoy() {
   return `${year}-${month}-${day}`;
 }
 
+function ModalResolucionSobrecarga({
+  conflicto,
+  horasCausa,
+  tituloCausa,
+  titulo,
+  descripcion,
+  etiquetaAccion,
+  etiquetaDesglose = "DESGLOSE DEL DÍA",
+  elementos,
+  mostrarCapacidad = true,
+  permitirResolucion = true,
+  onAccion,
+  onCancelar,
+  guardando,
+}) {
+  const [resolucion, setResolucion] = useState(false);
+  const [estrategia, setEstrategia] = useState(
+    conflicto?.fecha_recomendada ? "mover" : "manual"
+  );
+  const [horasManuales, setHorasManuales] = useState(() =>
+    Math.min(
+      Number(horasCausa) || 0,
+      Number(conflicto?.horas_disponibles) || 0
+    )
+  );
+
+  const lista = elementos ?? conflicto?.agenda ?? [];
+  const horasManualesExcedenDisponibles =
+    Number(horasManuales) > Number(conflicto?.horas_disponibles || 0);
+
+  const comenzarResolucion = () => {
+    setEstrategia(conflicto?.fecha_recomendada ? "mover" : "manual");
+    setHorasManuales(
+      Math.min(
+        Number(horasCausa) || 0,
+        Number(conflicto?.horas_disponibles) || 0
+      )
+    );
+    setResolucion(true);
+  };
+
+  const aplicarSolucion = () => {
+    const mover =
+      estrategia === "mover" && Boolean(conflicto?.fecha_recomendada);
+
+    onAccion?.({
+      tipo: mover ? "mover" : "manual",
+      fecha: mover ? conflicto.fecha_recomendada : conflicto.fecha_objetivo,
+      horas: mover ? Number(horasCausa) : Number(horasManuales),
+    });
+  };
+
+  if (!conflicto) {
+    return null;
+  }
+
+  return (
+    <>
+      {!resolucion && (
+        <div className="postpone-overlay">
+          <div
+            className="agenda-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="limit-title"
+          >
+            <button
+              type="button"
+              className="postpone-close"
+              aria-label="Cerrar"
+              disabled={guardando}
+              onClick={onCancelar}
+            >
+              ×
+            </button>
+            <div className="agenda-modal-title">
+              <span className="agenda-warning-icon">⚠</span>
+              <div>
+                <h2 id="limit-title">
+                  {titulo || "Límite de jornada excedido"}
+                </h2>
+                <p>
+                  {descripcion ??
+                    `El ${formatearFecha(conflicto.fecha_objetivo)} superarías tu jornada máxima configurada (${conflicto.limite_horas}h).`}
+                </p>
+              </div>
+            </div>
+            {mostrarCapacidad && (
+              <div className="agenda-capacity-card">
+                <div>
+                  <strong>
+                    {Number(conflicto.horas_asignadas).toFixed(1)}h{" "}
+                    <small>asignadas</small>
+                  </strong>
+                  <span>
+                    {Number(conflicto.limite_horas).toFixed(1)}h de tope
+                    {" "}· +{Number(conflicto.exceso_horas).toFixed(1)}h
+                    {" "}de exceso
+                  </span>
+                </div>
+                <div className="agenda-capacity-track">
+                  <span
+                    style={{
+                      width: `${Math.min(
+                        (Number(conflicto.limite_horas) /
+                          Number(conflicto.horas_asignadas)) *
+                          100,
+                        100
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            {lista.length > 0 && (
+              <>
+                <small className="agenda-breakdown-label">
+                  {etiquetaDesglose}
+                </small>
+                <div className="agenda-breakdown">
+                  {lista.map((gestion) => (
+                    <div className="agenda-breakdown-item" key={gestion.id}>
+                      <span>
+                        <strong>
+                          {gestion.titulo}
+                          {gestion.es_subtarea_reprogramada && (
+                            <em> · Causa del exceso</em>
+                          )}
+                        </strong>
+                        <small>{gestion.evento}</small>
+                      </span>
+                      <b>{Number(gestion.horas_estimadas).toFixed(1)}h</b>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="agenda-modal-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={guardando}
+                onClick={onCancelar}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={permitirResolucion ? comenzarResolucion : onAccion}
+                disabled={guardando}
+              >
+                {etiquetaAccion || (permitirResolucion ? "Resolver conflicto →" : "Continuar")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {resolucion && permitirResolucion && (
+        <div className="postpone-overlay">
+          <div
+            className="agenda-modal resolution-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resolution-title"
+          >
+            <button
+              type="button"
+              className="postpone-close"
+              aria-label="Cerrar"
+              disabled={guardando}
+              onClick={() => setResolucion(false)}
+            >
+              ×
+            </button>
+            <h2 id="resolution-title">Resolver sobrecarga de horas</h2>
+            <p>
+              {formatearFecha(conflicto.fecha_objetivo)} · Exceso de{" "}
+              {Number(conflicto.exceso_horas).toFixed(1)}h. Selecciona
+              cómo deseas equilibrar tu agenda.
+            </p>
+            <div className="agenda-capacity-card compact">
+              <div>
+                <strong>
+                  {Number(conflicto.horas_asignadas).toFixed(1)}h
+                  {" "}asignadas
+                </strong>
+                <span>
+                  {Number(conflicto.limite_horas).toFixed(1)}h de tope
+                  {" "}· +{Number(conflicto.exceso_horas).toFixed(1)}h
+                  {" "}de exceso
+                </span>
+              </div>
+              <div className="agenda-capacity-track">
+                <span
+                  style={{
+                    width: `${Math.min(
+                      (Number(conflicto.limite_horas) /
+                        Number(conflicto.horas_asignadas)) *
+                        100,
+                      100
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <div className="resolution-cause">
+              ⚠ {tituloCausa} · Causa del exceso
+              {" "}({Number(horasCausa).toFixed(1)}h)
+            </div>
+            <div className="resolution-options">
+              <button
+                type="button"
+                className={`resolution-option ${estrategia === "mover" ? "selected" : ""}`}
+                aria-pressed={estrategia === "mover"}
+                onClick={() => setEstrategia("mover")}
+              >
+                <span className="resolution-radio" />
+                <span>
+                  <strong>
+                    Mover a {formatearFecha(conflicto.fecha_recomendada)}
+                    <em>Recomendada</em>
+                  </strong>
+                  <small>
+                    Reubica la gestión completa al día con menor carga que
+                    permita mantener su duración.
+                  </small>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`resolution-option ${estrategia === "manual" ? "selected" : ""}`}
+                aria-pressed={estrategia === "manual"}
+                onClick={() => setEstrategia("manual")}
+              >
+                <span className="resolution-radio" />
+                <span>
+                  <strong>Ajustar manualmente</strong>
+                  <small>
+                    Aumenta o disminuye las horas y verifica que no superen la
+                    disponibilidad de la jornada.
+                  </small>
+                </span>
+              </button>
+            </div>
+            {estrategia === "manual" && (
+              <div className="postpone-field resolution-hours-field">
+                <label>Duración manual (horas)</label>
+                <div
+                  className="postpone-hours-control"
+                  aria-label="Ajustar duración manual"
+                >
+                  <button
+                    type="button"
+                    aria-label="Disminuir media hora"
+                    onClick={() =>
+                      setHorasManuales((horas) =>
+                        Math.max(0.5, Number(horas) - 0.5)
+                      )
+                    }
+                    disabled={guardando || horasManuales <= 0.5}
+                  >
+                    −
+                  </button>
+                  <span className="postpone-hours-value" aria-live="polite">
+                    <strong>{Number(horasManuales).toFixed(1)}</strong>
+                    <span>horas</span>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Aumentar media hora"
+                    onClick={() =>
+                      setHorasManuales((horas) => Number(horas) + 0.5)
+                    }
+                    disabled={guardando}
+                  >
+                    +
+                  </button>
+                </div>
+                {horasManualesExcedenDisponibles && (
+                  <small className="resolution-hours-alert" role="alert">
+                    ⚠ Las horas superan las{" "}
+                    {Number(conflicto.horas_disponibles).toFixed(1)}h
+                    disponibles. Disminuye la duración para continuar.
+                  </small>
+                )}
+              </div>
+            )}
+            <div className="agenda-modal-actions resolution-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={guardando}
+                onClick={() => setResolucion(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={aplicarSolucion}
+                disabled={
+                  guardando ||
+                  (estrategia === "mover" &&
+                    !conflicto.fecha_recomendada) ||
+                  (estrategia === "manual" &&
+                    (!horasManuales ||
+                      horasManuales <= 0 ||
+                      horasManualesExcedenDisponibles))
+                }
+              >
+                {guardando ? "Reprogramando…" : "Aplicar solución"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function Today({ onNotify }) {
   const [tareas, setTareas] = useState([]);
   const [gestionesVencidas, setGestionesVencidas] = useState([]);
@@ -1971,9 +2842,6 @@ function Today({ onNotify }) {
   const [motivoPosposicion, setMotivoPosposicion] = useState("");
   const [horasPosposicion, setHorasPosposicion] = useState(0);
   const [conflictoJornada, setConflictoJornada] = useState(null);
-  const [resolverSobrecarga, setResolverSobrecarga] = useState(false);
-  const [estrategiaSobrecarga, setEstrategiaSobrecarga] = useState("mover");
-  const [horasManuales, setHorasManuales] = useState(0);
   const [mesCalendario, setMesCalendario] = useState(() => {
     const hoy = new Date();
     return new Date(hoy.getFullYear(), hoy.getMonth(), 1);
@@ -2090,6 +2958,11 @@ function Today({ onNotify }) {
           if (estadoA === "hecho" && estadoB !== "hecho") return 1;
           if (estadoA !== "hecho" && estadoB === "hecho") return -1;
 
+          const horasA = obtenerHoras(a);
+          const horasB = obtenerHoras(b);
+
+          if (horasA !== horasB) return horasA - horasB;
+
           return obtenerTituloSubtarea(a).localeCompare(
             obtenerTituloSubtarea(b),
             "es"
@@ -2131,97 +3004,29 @@ function Today({ onNotify }) {
     setNuevaFecha("");
     setMotivoPosposicion("");
     setConflictoJornada(null);
-    setResolverSobrecarga(false);
     setHorasPosposicion(obtenerHoras(tarea));
     setMesCalendario(() => {
       const hoy = new Date();
       return new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     });
   };
+  const fechaLimitePosponer = obtenerFechaLimiteSubtarea(
+    tareaPosponer?.evento?.fecha
+  );
   const reprogramarConValidacionLocal = async (tarea, fecha, horas) => {
-    const horasOtros = subtareasAgenda.reduce((total, subtarea) => {
-      if (
-        String(subtarea.fechaObjetivo || "").slice(0, 10) !== fecha ||
-        String(subtarea.id) === String(tarea.id)
-      ) {
-        return total;
-      }
-      return total + obtenerHoras(subtarea);
-    }, 0);
-    const horasTotales = horasOtros + Number(horas);
+    const conflicto = construirConflictoSobrecarga({
+      agenda: subtareasAgenda,
+      fecha,
+      horas,
+      capacidadDiaria,
+      excluirId: tarea.id,
+      fechaLimite: fechaLimitePosponer,
+      titulo: obtenerTituloSubtarea(tarea),
+      eventoTitulo: tarea.evento?.titulo,
+    });
 
-    if (horasTotales > capacidadDiaria) {
-      const agenda = subtareasAgenda
-        .filter(
-          (subtarea) =>
-            String(subtarea.fechaObjetivo || "").slice(0, 10) === fecha &&
-            String(subtarea.id) !== String(tarea.id)
-        )
-        .map((subtarea) => ({
-          id: subtarea.id,
-          titulo: obtenerTituloSubtarea(subtarea),
-          evento: subtarea.evento?.titulo || "Evento sin título",
-          horas_estimadas: obtenerHoras(subtarea),
-          es_subtarea_reprogramada: false,
-        }));
-      agenda.push({
-        id: tarea.id,
-        titulo: obtenerTituloSubtarea(tarea),
-        evento: tarea.evento?.titulo || "Evento sin título",
-        horas_estimadas: Number(horas),
-        es_subtarea_reprogramada: true,
-      });
-
-      const fechaBase = new Date(`${fecha}T00:00:00`);
-      const fechasFuturas = [];
-      for (let dias = 1; dias <= 365; dias += 1) {
-        const candidata = new Date(fechaBase);
-        candidata.setDate(candidata.getDate() + dias);
-        const fechaCandidata = [
-          candidata.getFullYear(),
-          String(candidata.getMonth() + 1).padStart(2, "0"),
-          String(candidata.getDate()).padStart(2, "0"),
-        ].join("-");
-        const horasCandidata = subtareasAgenda.reduce(
-          (total, subtarea) =>
-            String(subtarea.fechaObjetivo || "").slice(0, 10) ===
-              fechaCandidata &&
-            String(subtarea.id) !== String(tarea.id)
-              ? total + obtenerHoras(subtarea)
-              : total,
-          0
-        );
-
-        fechasFuturas.push({
-          fecha: fechaCandidata,
-          horasAsignadas: horasCandidata,
-        });
-      }
-      const fechasConCapacidad = fechasFuturas.filter(
-        (candidata) =>
-          candidata.horasAsignadas + Number(horas) <= capacidadDiaria
-      );
-      const fechasParaRecomendar = fechasConCapacidad.length
-        ? fechasConCapacidad
-        : fechasFuturas;
-      const fechaRecomendada = fechasParaRecomendar.reduce(
-        (menosCargada, candidata) =>
-          candidata.horasAsignadas < menosCargada.horasAsignadas
-            ? candidata
-            : menosCargada
-      ).fecha;
-
-      return {
-        actualizada: false,
-        limite_excedido: true,
-        fecha_objetivo: fecha,
-        horas_asignadas: horasTotales,
-        limite_horas: capacidadDiaria,
-        exceso_horas: horasTotales - capacidadDiaria,
-        horas_disponibles: Math.max(0, capacidadDiaria - horasOtros),
-        agenda,
-        fecha_recomendada: fechaRecomendada,
-      };
+    if (conflicto) {
+      return { actualizada: false, ...conflicto };
     }
 
     const subtareaActualizada = await actualizarParcialSubtarea(tarea.id, {
@@ -2241,6 +3046,14 @@ function Today({ onNotify }) {
       return;
     }
 
+    if (!esFechaSubtareaValida(nuevaFecha, tareaPosponer.evento?.fecha)) {
+      onNotify(
+        "Selecciona una fecha límite entre hoy y la fecha del evento.",
+        "error"
+      );
+      return;
+    }
+
     setGuardandoPosposicion(true);
 
     try {
@@ -2252,12 +3065,6 @@ function Today({ onNotify }) {
 
       if (resultado?.limite_excedido) {
         setConflictoJornada(resultado);
-        setHorasManuales(
-          Math.min(
-            Number(horasPosposicion),
-            Number(resultado.horas_disponibles || 0)
-          )
-        );
         return;
       }
 
@@ -2269,7 +3076,6 @@ function Today({ onNotify }) {
       setNuevaFecha("");
       setMotivoPosposicion("");
       setConflictoJornada(null);
-      setResolverSobrecarga(false);
 
       await cargarHoy();
 
@@ -2283,35 +3089,21 @@ function Today({ onNotify }) {
       setGuardandoPosposicion(false);
     }
   };
-  const aplicarResolucionSobrecarga = async () => {
+  const aplicarResolucionSobrecarga = async ({ fecha, horas }) => {
     if (!tareaPosponer || !conflictoJornada) {
       return;
     }
 
-    const esMover =
-      estrategiaSobrecarga === "mover" &&
-      Boolean(conflictoJornada.fecha_recomendada);
-    const fecha = esMover
-      ? conflictoJornada.fecha_recomendada
-      : conflictoJornada.fecha_objetivo;
-    const horas = esMover
-      ? Number(horasPosposicion)
-      : Number(horasManuales);
-
     if (!fecha || !Number.isFinite(horas) || horas <= 0) {
       return;
     }
-    if (
-      estrategiaSobrecarga === "manual" &&
-      horasManualesExcedenDisponibles
-    ) {
+    if (!esFechaSubtareaValida(fecha, tareaPosponer.evento?.fecha)) {
       onNotify(
-        "Las horas ingresadas superan las horas disponibles de la jornada.",
+        "Selecciona una fecha límite entre hoy y la fecha del evento.",
         "error"
       );
       return;
     }
-
     setGuardandoPosposicion(true);
 
     try {
@@ -2323,10 +3115,6 @@ function Today({ onNotify }) {
 
       if (resultado?.limite_excedido) {
         setConflictoJornada(resultado);
-        setHorasManuales(
-          Math.min(horas, Number(resultado.horas_disponibles || 0))
-        );
-        setResolverSobrecarga(false);
         return;
       }
 
@@ -2334,7 +3122,6 @@ function Today({ onNotify }) {
         throw new Error("No fue posible actualizar la subtarea.");
       }
 
-      setResolverSobrecarga(false);
       setConflictoJornada(null);
       setTareaPosponer(null);
       setNuevaFecha("");
@@ -2522,19 +3309,6 @@ function Today({ onNotify }) {
     : 0;
   const excedeJornadaSeleccionada =
     nuevaFecha && horasAsignadasEnFecha > capacidadDiaria;
-  const horasManualesExcedenDisponibles =
-    Number(horasManuales) > Number(conflictoJornada?.horas_disponibles || 0);
-  const comenzarResolucion = () => {
-    const recomendada = Boolean(conflictoJornada?.fecha_recomendada);
-    setEstrategiaSobrecarga(recomendada ? "mover" : "manual");
-    setHorasManuales(
-      Math.min(
-        Number(horasPosposicion),
-        Number(conflictoJornada?.horas_disponibles || 0)
-      )
-    );
-    setResolverSobrecarga(true);
-  };
 
   const renderTarea = (tarea, urgente = false) => {
     const estado = normalizarEstado(tarea.estado);
@@ -2592,9 +3366,12 @@ function Today({ onNotify }) {
             </span>
 
             {estado === "pospuesto" && tarea.motivo_posposicion && (
-              <span>
-                Razón: "{tarea.motivo_posposicion}"
-              </span>
+              <>
+                {" "}
+                <span>
+                  Razón: "{tarea.motivo_posposicion}"
+                </span>
+              </>
             )}
           </div>
         </div>
@@ -3160,7 +3937,7 @@ function Today({ onNotify }) {
           </div>
         )}
       </section>
-      {tareaPosponer && !conflictoJornada && !resolverSobrecarga && (
+      {tareaPosponer && !conflictoJornada && (
         <div className="postpone-overlay">
           <div
             className="postpone-modal postpone-schedule-modal"
@@ -3285,13 +4062,18 @@ function Today({ onNotify }) {
                 ].join("-");
                 const horasDelDia = horasProgramadasEn(fecha);
                 const fechaPasada = fecha < obtenerFechaLocalHoy();
+                const fechaFueraDeRango =
+                  Boolean(fechaLimitePosponer) &&
+                  fecha > fechaLimitePosponer;
+                const fechaNoSeleccionable =
+                  fechaPasada || fechaFueraDeRango;
                 const seleccionada = nuevaFecha === fecha;
                 return (
                   <button
                     type="button"
-                    className={`postpone-calendar-day ${seleccionada ? "selected" : ""} ${fechaPasada ? "past" : ""} ${horasDelDia >= capacidadDiaria ? "full" : ""}`}
+                    className={`postpone-calendar-day ${seleccionada ? "selected" : ""} ${fechaNoSeleccionable ? "past" : ""} ${horasDelDia >= capacidadDiaria ? "full" : ""}`}
                     key={fecha}
-                    disabled={fechaPasada || guardandoPosposicion}
+                    disabled={fechaNoSeleccionable || guardandoPosposicion}
                     aria-pressed={seleccionada}
                     onClick={() => setNuevaFecha(fecha)}
                   >
@@ -3432,260 +4214,19 @@ function Today({ onNotify }) {
           </div>
         </div>
       )}
-      {conflictoJornada && !resolverSobrecarga && tareaPosponer && (
-        <div className="postpone-overlay">
-          <div
-            className="agenda-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="limit-title"
-          >
-            <button
-              type="button"
-              className="postpone-close"
-              aria-label="Cerrar"
-              disabled={guardandoPosposicion}
-              onClick={() => {
-                setConflictoJornada(null);
-                setTareaPosponer(null);
-              }}
-            >
-              ×
-            </button>
-            <div className="agenda-modal-title">
-              <span className="agenda-warning-icon">⚠</span>
-              <div>
-                <h2 id="limit-title">Límite de jornada excedido</h2>
-                <p>
-                  El {formatearFecha(conflictoJornada.fecha_objetivo)} superarías
-                  tu jornada máxima configurada ({conflictoJornada.limite_horas}h).
-                </p>
-              </div>
-            </div>
-            <div className="agenda-capacity-card">
-              <div>
-                <strong>
-                  {Number(conflictoJornada.horas_asignadas).toFixed(1)}h{" "}
-                  <small>asignadas</small>
-                </strong>
-                <span>
-                  {Number(conflictoJornada.limite_horas).toFixed(1)}h de tope
-                  {" "}· +{Number(conflictoJornada.exceso_horas).toFixed(1)}h
-                  {" "}de exceso
-                </span>
-              </div>
-              <div className="agenda-capacity-track">
-                <span
-                  style={{
-                    width: `${Math.min(
-                      (Number(conflictoJornada.limite_horas) /
-                        Number(conflictoJornada.horas_asignadas)) *
-                        100,
-                      100
-                    )}%`,
-                  }}
-                />
-              </div>
-            </div>
-            <small className="agenda-breakdown-label">DESGLOSE DEL DÍA</small>
-            <div className="agenda-breakdown">
-              {conflictoJornada.agenda.map((gestion) => (
-                <div className="agenda-breakdown-item" key={gestion.id}>
-                  <span>
-                    <strong>
-                      {gestion.titulo}
-                      {gestion.es_subtarea_reprogramada && (
-                        <em> · Causa del exceso</em>
-                      )}
-                    </strong>
-                    <small>{gestion.evento}</small>
-                  </span>
-                  <b>{Number(gestion.horas_estimadas).toFixed(1)}h</b>
-                </div>
-              ))}
-            </div>
-            <div className="agenda-modal-actions">
-              <button
-                type="button"
-                className="btn secondary"
-                disabled={guardandoPosposicion}
-                onClick={() => {
-                  setConflictoJornada(null);
-                  setTareaPosponer(null);
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn primary"
-                onClick={comenzarResolucion}
-                disabled={guardandoPosposicion}
-              >
-                Resolver conflicto →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {conflictoJornada && resolverSobrecarga && tareaPosponer && (
-        <div className="postpone-overlay">
-          <div
-            className="agenda-modal resolution-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="resolution-title"
-          >
-            <button
-              type="button"
-              className="postpone-close"
-              aria-label="Cerrar"
-              disabled={guardandoPosposicion}
-              onClick={() => setResolverSobrecarga(false)}
-            >
-              ×
-            </button>
-            <h2 id="resolution-title">Resolver sobrecarga de horas</h2>
-            <p>
-              {formatearFecha(conflictoJornada.fecha_objetivo)} · Exceso de{" "}
-              {Number(conflictoJornada.exceso_horas).toFixed(1)}h. Selecciona
-              cómo deseas equilibrar tu agenda.
-            </p>
-            <div className="agenda-capacity-card compact">
-              <div>
-                <strong>
-                  {Number(conflictoJornada.horas_asignadas).toFixed(1)}h
-                  {" "}asignadas
-                </strong>
-                <span>
-                  {Number(conflictoJornada.limite_horas).toFixed(1)}h de tope
-                  {" "}· +{Number(conflictoJornada.exceso_horas).toFixed(1)}h
-                  {" "}de exceso
-                </span>
-              </div>
-              <div className="agenda-capacity-track">
-                <span
-                  style={{
-                    width: `${Math.min(
-                      (Number(conflictoJornada.limite_horas) /
-                        Number(conflictoJornada.horas_asignadas)) *
-                        100,
-                      100
-                    )}%`,
-                  }}
-                />
-              </div>
-            </div>
-            <div className="resolution-cause">
-              ⚠ {obtenerTituloSubtarea(tareaPosponer)} · Causa del exceso
-              {" "}({Number(horasPosposicion).toFixed(1)}h)
-            </div>
-            <div className="resolution-options">
-              <button
-                type="button"
-                className={`resolution-option ${estrategiaSobrecarga === "mover" ? "selected" : ""}`}
-                aria-pressed={estrategiaSobrecarga === "mover"}
-                onClick={() => setEstrategiaSobrecarga("mover")}
-              >
-                <span className="resolution-radio" />
-                <span>
-                  <strong>
-                    Mover a {formatearFecha(conflictoJornada.fecha_recomendada)}
-                    <em>Recomendada</em>
-                  </strong>
-                  <small>
-                    Reubica la gestión completa al día con menor carga que
-                    permita mantener su duración.
-                  </small>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={`resolution-option ${estrategiaSobrecarga === "manual" ? "selected" : ""}`}
-                aria-pressed={estrategiaSobrecarga === "manual"}
-                onClick={() => setEstrategiaSobrecarga("manual")}
-              >
-                <span className="resolution-radio" />
-                <span>
-                  <strong>Ajustar manualmente</strong>
-                  <small>
-                    Aumenta o disminuye las horas y verifica que no superen la
-                    disponibilidad de la jornada.
-                  </small>
-                </span>
-              </button>
-            </div>
-            {estrategiaSobrecarga === "manual" && (
-              <div className="postpone-field resolution-hours-field">
-                <label>Duración manual (horas)</label>
-                <div
-                  className="postpone-hours-control"
-                  aria-label="Ajustar duración manual"
-                >
-                  <button
-                    type="button"
-                    aria-label="Disminuir media hora"
-                    onClick={() =>
-                      setHorasManuales((horas) =>
-                        Math.max(0.5, Number(horas) - 0.5)
-                      )
-                    }
-                    disabled={guardandoPosposicion || horasManuales <= 0.5}
-                  >
-                    −
-                  </button>
-                  <span className="postpone-hours-value" aria-live="polite">
-                    <strong>{Number(horasManuales).toFixed(1)}</strong>
-                    <span>horas</span>
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Aumentar media hora"
-                    onClick={() =>
-                      setHorasManuales((horas) => Number(horas) + 0.5)
-                    }
-                    disabled={guardandoPosposicion}
-                  >
-                    +
-                  </button>
-                </div>
-                {horasManualesExcedenDisponibles && (
-                  <small className="resolution-hours-alert" role="alert">
-                    ⚠ Las horas superan las{" "}
-                    {Number(conflictoJornada.horas_disponibles).toFixed(1)}h
-                    disponibles. Disminuye la duración para continuar.
-                  </small>
-                )}
-              </div>
-            )}
-            <div className="agenda-modal-actions resolution-actions">
-              <button
-                type="button"
-                className="btn secondary"
-                disabled={guardandoPosposicion}
-                onClick={() => setResolverSobrecarga(false)}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn primary"
-                onClick={aplicarResolucionSobrecarga}
-                disabled={
-                  guardandoPosposicion ||
-                  (estrategiaSobrecarga === "mover" &&
-                    !conflictoJornada.fecha_recomendada) ||
-                  (estrategiaSobrecarga === "manual" &&
-                    (!horasManuales ||
-                      horasManuales <= 0 ||
-                      horasManualesExcedenDisponibles))
-                }
-              >
-                {guardandoPosposicion ? "Reprogramando…" : "Aplicar solución"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {conflictoJornada && tareaPosponer && (
+        <ModalResolucionSobrecarga
+          key={`${conflictoJornada.fecha_objetivo}-${conflictoJornada.horas_asignadas}-${conflictoJornada.fecha_recomendada || ""}`}
+          conflicto={conflictoJornada}
+          horasCausa={horasPosposicion}
+          tituloCausa={obtenerTituloSubtarea(tareaPosponer)}
+          guardando={guardandoPosposicion}
+          onCancelar={() => {
+            setConflictoJornada(null);
+            setTareaPosponer(null);
+          }}
+          onAccion={aplicarResolucionSobrecarga}
+        />
       )}
     </section>
   );
@@ -3996,7 +4537,9 @@ function RegistroUsuario() {
 
       guardarSesion(sesion);
 
-      navegar("/registro/onboarding");
+      navegar(
+        PERSONALIZACION_HABILITADA ? "/registro/onboarding" : "/eventos"
+      );
     } catch (error) {
       setErrorServidor(
         error.message || "No fue posible crear la cuenta."
@@ -4361,7 +4904,13 @@ export default function App() {
 
   useEffect(() => {
     const rutaInicialNavegador = window.location.pathname;
+
     if (
+      rutaInicialNavegador === "/registro/onboarding" &&
+      !PERSONALIZACION_HABILITADA
+    ) {
+      window.history.replaceState({}, "", "/eventos");
+    } else if (
       !estaAutenticado() &&
       esRutaPrivada(rutaInicialNavegador) &&
       rutaInicialNavegador !== "/login"
@@ -4378,6 +4927,12 @@ export default function App() {
       ) {
         window.history.replaceState({}, "", "/login");
         setRuta("/login");
+        return;
+      }
+
+      if (path === "/registro/onboarding" && !PERSONALIZACION_HABILITADA) {
+        window.history.replaceState({}, "", "/eventos");
+        setRuta("/eventos");
         return;
       }
 
@@ -4412,30 +4967,34 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast({ type, message: "" }), 4000);
   };
 
-  const crear = async (evento, subtarea = null) => {
+  const crear = async (evento, subtareas = null) => {
+    const lista = Array.isArray(subtareas) ? subtareas : subtareas ? [subtareas] : [];
     const creado = await crearEvento(evento);
-    if (subtarea && creado?.id) {
-      try {
-        await crearSubtarea({
-          ...subtarea,
-          evento_id: creado.id,
-        });
-      } catch (error) {
-        notify(
-          `El evento se creó, pero no fue posible guardar la subtarea: ${error.message}`,
-          "error"
-        );
-        navegar(`/eventos/${creado.id}`);
-        return;
+
+    if (lista.length && creado?.id) {
+      for (const subtarea of lista) {
+        try {
+          await crearSubtarea({
+            ...subtarea,
+            evento_id: creado.id,
+          });
+        } catch (error) {
+          notify(
+            `El evento se creó, pero no fue posible guardar la subtarea: ${error.message}`,
+            "error"
+          );
+          navegar(`/eventos/${creado.id}`);
+          return;
+        }
       }
-    } else if (subtarea) {
+    } else if (lista.length) {
       notify("El evento se creó, pero no se recibió su identificador para guardar la subtarea.", "error");
       await cargarEventos();
       navegar("/eventos");
       return;
     }
 
-    notify(subtarea ? "Evento y subtarea creados correctamente" : "Evento creado correctamente");
+    notify(lista.length ? "Evento y subtarea creados correctamente" : "Evento creado correctamente");
     if (creado?.id) navegar(`/eventos/${creado.id}`);
     else { await cargarEventos(); navegar("/eventos"); }
   };
@@ -4455,7 +5014,7 @@ export default function App() {
     return <RegistroUsuario />;
   }
 
-  if (ruta === "/registro/onboarding") {
+  if (ruta === "/registro/onboarding" && PERSONALIZACION_HABILITADA) {
     return <OnboardingRegistro />;
   }
 
