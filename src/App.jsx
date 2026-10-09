@@ -4906,6 +4906,12 @@ export default function App() {
     const rutaInicialNavegador = window.location.pathname;
 
     if (
+      estaAutenticado() &&
+      (rutaInicialNavegador === "/registro" ||
+        rutaInicialNavegador === "/login")
+    ) {
+      window.history.replaceState({}, "", "/eventos");
+    } else if (
       rutaInicialNavegador === "/registro/onboarding" &&
       !PERSONALIZACION_HABILITADA
     ) {
@@ -4920,6 +4926,15 @@ export default function App() {
 
     const onPop = (event) => {
       const path = window.location.pathname;
+
+      if (
+        estaAutenticado() &&
+        (path === "/registro" || path === "/registro/onboarding")
+      ) {
+        window.history.replaceState({}, "", "/eventos");
+        setRuta("/eventos");
+        return;
+      }
 
       if (
         ruta === "/registro" &&
