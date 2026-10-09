@@ -112,6 +112,18 @@ function obtenerTituloSubtarea(item) {
   return item?.titulo ?? item?.nombre ?? "Sin título";
 }
 
+function limitarFechaSubtarea(fecha, fechaEvento) {
+  const hoy = obtenerFechaLocalHoy();
+  const maximo = String(fechaEvento || "").slice(0, 10);
+  if (!maximo || maximo < hoy) return "";
+
+  const seleccionada = String(fecha || "").slice(0, 10);
+  if (!seleccionada || seleccionada < hoy || seleccionada > maximo) {
+    return maximo;
+  }
+  return seleccionada;
+}
+
 function Toast({ type = "success", message }) {
   if (!message) return null;
   return <div className={`toast toast-${type}`} role={type === "error" ? "alert" : "status"}>{type === "success" ? "✓" : "!"} {message}</div>;
@@ -142,8 +154,6 @@ function Header({
   abrirCrear,
   busquedaEventos,
   onBuscarEventos,
-  darkMode,
-  onToggleDarkMode,
 }) {
   const [mostrarCerrarSesion, setMostrarCerrarSesion] = useState(false);
 
@@ -207,18 +217,6 @@ function Header({
             onChange={(event) => onBuscarEventos(event.target.value)}
           />
         </form>
-
-        <button
-          className="icon-button"
-          type="button"
-          aria-label="Modo oscuro temporalmente desactivado"
-          aria-pressed={darkMode}
-          title="Modo oscuro temporalmente desactivado"
-          onClick={onToggleDarkMode}
-          disabled
-        >
-          {darkMode ? "☀" : "☾"}
-        </button>
 
         <button
           className="btn primary header-create"
@@ -558,6 +556,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
     titulo: "",
     horas_estimadas: "",
     estado: "",
+    dia_objetivo: "",
   });
   const [errorSubtarea, setErrorSubtarea] = useState("");
 
@@ -608,6 +607,15 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
 
     setErrores((prev) => ({ ...prev, [name]: "" }));
     setErrorServidor("");
+    if (name === "fecha") {
+      setSubtarea((prev) => ({
+        ...prev,
+        dia_objetivo: limitarFechaSubtarea(
+          prev.dia_objetivo || value,
+          value
+        ),
+      }));
+    }
   };
 
   const validar = () => {
@@ -661,7 +669,16 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
         erroresSubtarea.push("indica las horas (de 1 a 24)");
       }
       if (!subtarea.estado) erroresSubtarea.push("selecciona el estado");
-      if (!formulario.fecha) erroresSubtarea.push("indica la fecha del evento");
+      if (
+        !limitarFechaSubtarea(
+          subtarea.dia_objetivo || formulario.fecha,
+          formulario.fecha
+        )
+      ) {
+        erroresSubtarea.push(
+          "selecciona una fecha límite entre hoy y la fecha del evento"
+        );
+      }
 
       if (erroresSubtarea.length) {
         setErrorSubtarea(`Para crear la subtarea, ${erroresSubtarea.join(", ")}.`);
@@ -683,7 +700,10 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
         titulo: subtarea.titulo.trim(),
         horas_estimadas: Number(subtarea.horas_estimadas),
         estado: subtarea.estado,
-        dia_objetivo: formulario.fecha,
+        dia_objetivo: limitarFechaSubtarea(
+          subtarea.dia_objetivo || formulario.fecha,
+          formulario.fecha
+        ),
       } : null);
     } catch (error) {
       setErrorServidor(error.message);
@@ -771,7 +791,7 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
           />
           <span>
             <strong>Crear una subtarea</strong>
-            <small>Se guardará vinculada a este evento y con su fecha de realización.</small>
+            <small>Se guardará vinculada al evento y con una fecha límite dentro de su periodo.</small>
           </span>
         </label>
         {crearSubtareaInicial && (
@@ -832,13 +852,26 @@ function FormularioEvento({ onCancelar, onCrear, onProgress }) {
             <input
               id="evento-subtarea-fecha"
               type="date"
-              value={formulario.fecha}
-              readOnly
-              disabled={!formulario.fecha}
-              aria-invalid={!formulario.fecha}
+              min={obtenerFechaLocalHoy()}
+              max={formulario.fecha}
+              value={limitarFechaSubtarea(
+                subtarea.dia_objetivo || formulario.fecha,
+                formulario.fecha
+              )}
+              onChange={(event) =>
+                setSubtarea((prev) => ({
+                  ...prev,
+                  dia_objetivo: event.target.value,
+                }))
+              }
+              disabled={
+                !formulario.fecha ||
+                formulario.fecha < obtenerFechaLocalHoy()
+              }
+              aria-invalid={Boolean(errorSubtarea)}
             />
             <p className="helper">
-              La fecha límite corresponde al día del evento
+              Selecciona entre hoy y la fecha del evento
               {formulario.fecha ? ` (${formatearFecha(formulario.fecha)})` : "."}
             </p>
             {errorSubtarea && <p className="inline-error" role="alert">{errorSubtarea}</p>}
@@ -860,7 +893,7 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
     nombre: "",
     horas: "",
     estado: "pendiente",
-    dia_objetivo: eventoFecha || "",
+    dia_objetivo: limitarFechaSubtarea(eventoFecha, eventoFecha),
   });
 
   const [errores, setErrores] = useState({});
@@ -900,8 +933,12 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
       next.horas = "Las horas deben ser mayor a 0.";
     }
 
-    if (!form.dia_objetivo) {
-      next.dia_objetivo = "La fecha del evento es requerida.";
+    if (
+      !limitarFechaSubtarea(form.dia_objetivo, eventoFecha) ||
+      limitarFechaSubtarea(form.dia_objetivo, eventoFecha) !== form.dia_objetivo
+    ) {
+      next.dia_objetivo =
+        "Selecciona una fecha límite entre hoy y la fecha del evento.";
     }
     setErrores(next);
 
@@ -1017,11 +1054,14 @@ function CrearSubtareaForm({ eventoId, eventoFecha, onCancelar, onCreada }) {
         id="sub-dia-objetivo"
         name="dia_objetivo"
         type="date"
-        disabled
+        min={obtenerFechaLocalHoy()}
+        max={eventoFecha}
         value={form.dia_objetivo}
+        onChange={actualizar}
+        disabled={!eventoFecha || eventoFecha < obtenerFechaLocalHoy()}
         aria-invalid={Boolean(errores.dia_objetivo)}
       />
-      <p className="helper">La fecha límite corresponde al día del evento.</p>
+      <p className="helper">Selecciona entre hoy y la fecha del evento.</p>
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
@@ -1244,7 +1284,10 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
     nombre: subtarea?.titulo ?? subtarea?.nombre ?? "",
     horas: subtarea?.horas_estimadas ?? subtarea?.horas ?? "",
     estado: normalizarEstado(subtarea?.estado),
-    dia_objetivo: eventoFecha || subtarea?.dia_objetivo || "",
+    dia_objetivo: limitarFechaSubtarea(
+      subtarea?.dia_objetivo || eventoFecha,
+      eventoFecha
+    ),
   });
 
   const [errores, setErrores] = useState({});
@@ -1283,8 +1326,12 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
     ) {
       next.horas = "Las horas deben ser mayor a 0.";
     }
-    if (!form.dia_objetivo) {
-      next.dia_objetivo = "La fecha del evento es requerida.";
+    if (
+      !limitarFechaSubtarea(form.dia_objetivo, eventoFecha) ||
+      limitarFechaSubtarea(form.dia_objetivo, eventoFecha) !== form.dia_objetivo
+    ) {
+      next.dia_objetivo =
+        "Selecciona una fecha límite entre hoy y la fecha del evento.";
     }
     setErrores(next);
 
@@ -1299,7 +1346,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
       await actualizarSubtarea(subtarea.id, {
         evento_id: eventoId,
         titulo: form.nombre.trim(),
-        dia_objetivo: eventoFecha || form.dia_objetivo,
+        dia_objetivo: form.dia_objetivo,
         horas_estimadas: Number(form.horas),
         estado: form.estado,
       });
@@ -1395,11 +1442,14 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
         id="edit-sub-dia-objetivo"
         name="dia_objetivo"
         type="date"
-        disabled
+        min={obtenerFechaLocalHoy()}
+        max={eventoFecha}
         value={form.dia_objetivo}
+        onChange={actualizar}
+        disabled={!eventoFecha || eventoFecha < obtenerFechaLocalHoy()}
         aria-invalid={Boolean(errores.dia_objetivo)}
       />
-      <p className="helper">La fecha límite corresponde al día del evento.</p>
+      <p className="helper">Selecciona entre hoy y la fecha del evento.</p>
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
@@ -4310,7 +4360,6 @@ function RegistroUsuario() {
 }
 export default function App() {
   const [ruta, setRuta] = useState(obtenerRutaInicial);
-  const [darkMode, setDarkMode] = useState(false);
   const [eventos, setEventos] = useState([]);
   const [busquedaEventos, setBusquedaEventos] = useState("");
   const [cargandoEventos, setCargandoEventos] = useState(true);
@@ -4385,7 +4434,6 @@ export default function App() {
         await crearSubtarea({
           ...subtarea,
           evento_id: creado.id,
-          dia_objetivo: evento.fecha,
         });
       } catch (error) {
         notify(
@@ -4426,14 +4474,12 @@ export default function App() {
     return <OnboardingRegistro />;
   }
 
-  return <main className={`app${darkMode ? " dark-theme" : ""}`}>
+  return <main className="app">
     <Header
       ruta={ruta}
       abrirCrear={() => navegar("/crear-evento")}
       busquedaEventos={busquedaEventos}
       onBuscarEventos={setBusquedaEventos}
-      darkMode={darkMode}
-      onToggleDarkMode={() => setDarkMode((enabled) => !enabled)}
     />
     <Toast type={toast.type} message={toast.message} />
     {ruta === "/eventos" && <Eventos eventos={eventos} cargando={cargandoEventos} error={errorEventos} recargar={cargarEventos} crear={() => navegar("/crear-evento")} busqueda={busquedaEventos} />}
