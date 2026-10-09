@@ -28,9 +28,18 @@ import {
 
 const rutas = ["/login", "/registro", "/registro/onboarding", "/eventos", "/hoy", "/crear-evento", "/configuracion"];
 
+// Deshabilita temporalmente el paso de "Personalización de tu espacio de
+// trabajo" durante este sprint. El componente OnboardingRegistro y sus
+// categorías se conservan intactos; basta con volver a poner esta bandera en
+// true para rehabilitar la pantalla.
+const PERSONALIZACION_HABILITADA = false;
+
 function rutaActual() {
   const path = window.location.pathname;
   if (path.startsWith("/eventos/") && path.split("/")[2]) return path;
+  if (path === "/registro/onboarding" && !PERSONALIZACION_HABILITADA) {
+    return "/eventos";
+  }
   return rutas.includes(path) ? path : "/eventos";
 }
 function esRutaPublica(path) {
@@ -62,6 +71,10 @@ function obtenerRutaInicial() {
 }
 
 function navegar(path) {
+  if (path === "/registro/onboarding" && !PERSONALIZACION_HABILITADA) {
+    path = "/eventos";
+  }
+
   if (esRutaPrivada(path) && !estaAutenticado()) {
     path = "/login";
   }
@@ -1448,7 +1461,7 @@ function CrearSubtareaForm({
 
       {errores.nombre && (
         <p className="inline-error" role="alert">
-          X {errores.nombre}
+          {errores.nombre}
         </p>
       )}
 
@@ -1475,7 +1488,7 @@ function CrearSubtareaForm({
 
           {errores.horas ? (
             <p className="inline-error" role="alert">
-              X {errores.horas}
+              {errores.horas}
             </p>
           ) : (
             <p className="helper">
@@ -1527,7 +1540,7 @@ function CrearSubtareaForm({
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
-          X {errores.dia_objetivo}
+          {errores.dia_objetivo}
         </p>
       )}
 
@@ -1917,7 +1930,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
 
       {errores.nombre && (
         <p className="inline-error" role="alert">
-          X {errores.nombre}
+          {errores.nombre}
         </p>
       )}
 
@@ -1942,7 +1955,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
 
           {errores.horas && (
             <p className="inline-error" role="alert">
-              X {errores.horas}
+              {errores.horas}
             </p>
           )}
         </div>
@@ -1988,7 +2001,7 @@ function EditarSubtareaForm({ subtarea, eventoId, eventoFecha, onCancelar, onGua
 
       {errores.dia_objetivo && (
         <p className="inline-error" role="alert">
-          X {errores.dia_objetivo}
+          {errores.dia_objetivo}
         </p>
       )}
 
@@ -2122,7 +2135,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
       <div className="detail-title-row">
         <div><h1>{evento.titulo}</h1><p>• Información del evento</p></div>
         <div className="title-actions">
-          <button className="btn secondary edit-action" onClick={() => setModal("edit-event")}><span>Editar</span><span className="edit-action-pencil" aria-hidden="true">✎</span></button>
+          <button className="btn secondary" onClick={() => setModal("edit-event")}><span className="edit-pencil" aria-hidden="true">✎</span> Editar</button>
           <button className="btn danger-outline" onClick={() => setConfirmacion({ type: "evento" })}><FaTrashAlt aria-hidden="true" /> Eliminar</button>
         </div>
       </div>
@@ -2148,7 +2161,7 @@ function DetalleEvento({ id, volver, onNotify, onEventosChanged }) {
               <span className={`task-check ${estado === "hecho" ? "completed" : ""}`}>{estado === "hecho" ? "✓" : ""}</span>
               <div className="task-main"><h3 className={estado === "hecho" ? "completed-text" : ""}>{titulo}</h3><p>◷ {obtenerHoras(task)} {obtenerHoras(task) === 1 ? "hora" : "horas"}</p></div>
               <span className={`badge ${estado === "hecho" ? "badge-success" : "badge-pending"}`}>{etiquetaEstado(estado)}</span>
-              <div className="row-actions"><button className="btn ghost edit-action" onClick={() => setModal({ type: "edit-subtask", item: task })}><span>Editar</span><span className="edit-action-pencil" aria-hidden="true">✎</span></button><button className="btn danger-outline" onClick={() => setConfirmacion({ type: "subtarea", item: task })}><FaTrashAlt aria-hidden="true" /> Eliminar</button></div>
+              <div className="row-actions"><button className="btn ghost" onClick={() => setModal({ type: "edit-subtask", item: task })}><span className="edit-pencil" aria-hidden="true">✎</span> Editar</button><button className="btn danger-outline" onClick={() => setConfirmacion({ type: "subtarea", item: task })}><FaTrashAlt aria-hidden="true" /> Eliminar</button></div>
             </article>;
           })}
         </div>}
@@ -2451,7 +2464,7 @@ function ConfiguracionUsuario({ onNotify }) {
                   className="inline-error"
                   role="alert"
                 >
-                  X {errorCampo}
+                  {errorCampo}
                 </p>
               )}
             </div>
@@ -4537,7 +4550,9 @@ function RegistroUsuario() {
 
       guardarSesion(sesion);
 
-      navegar("/registro/onboarding");
+      navegar(
+        PERSONALIZACION_HABILITADA ? "/registro/onboarding" : "/eventos"
+      );
     } catch (error) {
       setErrorServidor(
         error.message || "No fue posible crear la cuenta."
@@ -4902,7 +4917,13 @@ export default function App() {
 
   useEffect(() => {
     const rutaInicialNavegador = window.location.pathname;
+
     if (
+      rutaInicialNavegador === "/registro/onboarding" &&
+      !PERSONALIZACION_HABILITADA
+    ) {
+      window.history.replaceState({}, "", "/eventos");
+    } else if (
       !estaAutenticado() &&
       esRutaPrivada(rutaInicialNavegador) &&
       rutaInicialNavegador !== "/login"
@@ -4919,6 +4940,12 @@ export default function App() {
       ) {
         window.history.replaceState({}, "", "/login");
         setRuta("/login");
+        return;
+      }
+
+      if (path === "/registro/onboarding" && !PERSONALIZACION_HABILITADA) {
+        window.history.replaceState({}, "", "/eventos");
+        setRuta("/eventos");
         return;
       }
 
@@ -5000,7 +5027,7 @@ export default function App() {
     return <RegistroUsuario />;
   }
 
-  if (ruta === "/registro/onboarding") {
+  if (ruta === "/registro/onboarding" && PERSONALIZACION_HABILITADA) {
     return <OnboardingRegistro />;
   }
 

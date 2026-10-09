@@ -767,22 +767,10 @@ small {
   gap: 9px;
 }
 
-.edit-action {
-  display: inline-flex;
+.edit-pencil {
+  display: inline-block;
 
-  align-items: center;
-
-  justify-content: space-between;
-
-  gap: 7px;
-}
-
-.edit-action-pencil {
-  flex: 0 0 auto;
-
-  margin-right: -3px;
-
-  line-height: 1;
+  transform: scaleX(-1);
 }
 
 
