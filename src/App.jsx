@@ -1150,10 +1150,8 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
   const validar = () => {
     const next = {};
 
-    if (formulario.titulo.trim().length < 3) {
-      next.titulo = "El título debe tener al menos 3 caracteres.";
-    } else if (formulario.titulo.trim().length < 5) {
-      next.titulo = "El título debe tener al menos 5 caracteres.";
+    if (!formulario.titulo.trim()) {
+      next.titulo = "se requiere titulo";
     }
 
     const hoy = obtenerFechaLocalHoy();
@@ -1209,7 +1207,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
     <form onSubmit={enviar} noValidate>
       <div className="field-header"><label htmlFor="edit-titulo">Título del evento <span>*</span></label></div>
       <input id="edit-titulo" name="titulo" value={formulario.titulo} onChange={actualizar} aria-invalid={Boolean(errores.titulo)} autoFocus />
-      {errores.titulo && <p className="inline-error" role="alert">X {errores.titulo}</p>}
+      {errores.titulo && <p className="inline-error" role="alert">{errores.titulo}</p>}
       <div className="form-two-columns">
         <div>
           <div className="field-header"><label htmlFor="edit-fecha">Fecha del evento <span>*</span></label></div>
@@ -1223,7 +1221,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
             aria-invalid={Boolean(errores.fecha)}
           />
           {errores.fecha ? (
-            <p className="inline-error" role="alert">X {errores.fecha}</p>
+            <p className="inline-error" role="alert">{errores.fecha}</p>
           ) : (
             <p className="helper">ⓘ La fecha debe ser hoy o una fecha futura</p>
           )}
@@ -1242,7 +1240,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
             aria-invalid={Boolean(errores.horas)}
           />
           {errores.horas ? (
-            <p className="inline-error" role="alert">X {errores.horas}</p>
+            <p className="inline-error" role="alert">{errores.horas}</p>
           ) : (
             <p className="helper">ⓘ Las horas deben ser entre 1 y 24</p>
           )}
@@ -1265,7 +1263,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
 
       {errores.usuario_responsable && (
         <p className="inline-error" role="alert">
-          X {errores.usuario_responsable}
+          {errores.usuario_responsable}
         </p>
       )}
       <div className="field-header"><label htmlFor="edit-descripcion">Descripción</label></div>
