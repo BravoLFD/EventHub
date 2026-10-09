@@ -1151,7 +1151,7 @@ function EditarEventoForm({ evento, onCancelar, onGuardado }) {
     const next = {};
 
     if (!formulario.titulo.trim()) {
-      next.titulo = "se requiere titulo";
+      next.titulo = "Se requiere titulo";
     }
 
     const hoy = obtenerFechaLocalHoy();
@@ -3771,10 +3771,6 @@ function OnboardingRegistro() {
             alt="EventHub"
             className="onboarding-logo"
           />
-
-          <span className="onboarding-workspace">
-            ESPACIO DE TRABAJO
-          </span>
         </div>
 
         {/* PASO */}
@@ -3788,11 +3784,6 @@ function OnboardingRegistro() {
         {/* TITULO */}
         <div className="onboarding-heading">
           <h1>¿Qué enfoque estás buscando?</h1>
-
-          <p>
-            Selecciona el tipo de eventos que gestionas con mayor frecuencia
-            para calibrar tus plantillas, cronogramas y parámetros de capacidad.
-          </p>
 
           <small>
             ⓘ Puedes elegir más de uno para adaptar tu panel multifuncional
@@ -3864,10 +3855,6 @@ function OnboardingRegistro() {
 
         {/* FOOTER */}
         <footer className="onboarding-footer">
-          <strong>EventHub OS</strong>
-          <span>—</span>
-          <span>Plataforma Operativa de Alto Rendimiento para Productoras y Organizadores</span>
-
           <small>
             © 2025 EventHub Inc. Todos los derechos reservados.
             Tus preferencias se sincronizan en la nube.
@@ -4480,6 +4467,28 @@ export default function App() {
       onBuscarEventos={setBusquedaEventos}
     />
     <Toast type={toast.type} message={toast.message} />
+    <div className="help-widget">
+      <button
+        type="button"
+        className="help-button"
+        aria-label="Ayuda sobre el orden de las gestiones"
+        aria-describedby="gestiones-help-tooltip"
+      >
+        ?
+      </button>
+      <div
+        id="gestiones-help-tooltip"
+        className="help-tooltip"
+        role="tooltip"
+      >
+        <strong>¿Cómo se ordena esto?</strong>
+        <span>
+          Las gestiones se ordenan priorizando primero las más urgentes, luego
+          aquellas con mayor prioridad y proximidad, y finalmente las demás
+          según su fecha correspondiente.
+        </span>
+      </div>
+    </div>
     {ruta === "/eventos" && <Eventos eventos={eventos} cargando={cargandoEventos} error={errorEventos} recargar={cargarEventos} crear={() => navegar("/crear-evento")} busqueda={busquedaEventos} />}
     {ruta === "/hoy" && <Today onNotify={notify} />}
     {ruta === "/configuracion" && (<ConfiguracionUsuario onNotify={notify} />)}
